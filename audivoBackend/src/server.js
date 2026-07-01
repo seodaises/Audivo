@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const errorHandler = require('./middlewares/errorHandler');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -11,6 +12,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ message: 'Audivo backend is running' });
 });
+
+app.use('/api/auth', authRoutes);
 
 app.use(errorHandler);
 

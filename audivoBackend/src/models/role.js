@@ -1,26 +1,37 @@
 'use strict';
 
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const { Model } = require('sequelize');
 
-const Role = sequelize.define('Role', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-  },
-  description: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-}, {
-  tableName: 'roles',   // point explicitly at our table
-  timestamps: true,     // Sequelize manages createdAt / updatedAt
-});
+module.exports = (sequelize, DataTypes) => {
+  class Role extends Model {
+    static associate(models) {
+      Role.hasMany(models.User, { foreignKey: 'role_id', as: 'users' });
+    }
+  }
 
-module.exports = Role;
+  Role.init(
+    {
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+      },
+      description: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      level: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+      },
+    },
+    {
+      sequelize,
+      modelName: 'Role',
+      tableName: 'roles',
+    }
+  );
+
+  return Role;
+};

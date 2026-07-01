@@ -10,6 +10,7 @@ module.exports = {
       { key: 'view_analytics', description: 'Can view analytics', createdAt: now, updatedAt: now },
       { key: 'feature_songs', description: 'Can feature songs', createdAt: now, updatedAt: now },
       { key: 'moderate_comments', description: 'Can moderate comments', createdAt: now, updatedAt: now },
+      {key: 'manage_roles', description: 'Create roles and assign permissions to them (Super Admin only)',createdAt: new Date(), updatedAt: new Date(),},
     ]);
   },
 
