@@ -28,7 +28,7 @@ const register = async ({ email, password, displayName }) => {
     password_hash,
     display_name: displayName,
     role_id: listener.id,
-    // email_verified_at stays NULL — unverified until they click the link
+
   });
 
   const token = generateVerificationToken();
@@ -43,12 +43,9 @@ const register = async ({ email, password, displayName }) => {
     token,
   });
 
-  // `verificationToken` is returned ONLY so you can test verify in Postman
-  // before SMTP exists. Remove this field once real email sending is wired.
   return {
     user: publicUser(user),
     emailDelivery,
-    verificationToken: token, // TODO: remove once email send is live
   };
 };
 
@@ -64,7 +61,6 @@ const login = async ({ email, password, ipAddress, userAgent }) => {
   if (!ok) throw new ApiError(401, 'Invalid credentials');
   if (!user.is_active) throw new ApiError(403, 'Account is disabled');
 
-  // Dev-permissive: unverified users may log in unless this flag is turned on.
   if (process.env.REQUIRE_VERIFIED_EMAIL === 'true' && !user.email_verified_at) {
     throw new ApiError(403, 'Please verify your email before logging in');
   }
@@ -109,6 +105,32 @@ const verifyEmail = async (token) => {
   return { verified: true, email: record.user.email };
 };
 
+
+const resendVerification = async ({ email }) => {
+  const user = await db.User.findOne({ where: { email } });
+
+  // No user, or already verified → act as if we sent something. Do nothing.
+  if (!user || user.email_verified_at) {
+    return { sent: false, verificationUrl: null };
+  }
+
+  // Burn any still-valid tokens so only the new one is usable.
+  await db.EmailVerificationToken.update(
+    { used_at: new Date() },
+    { where: { user_id: user.id, used_at: null } }
+  );
+
+  const token = generateVerificationToken();
+  await db.EmailVerificationToken.create({
+    user_id: user.id,
+    token,
+    expires_at: expiryFromNow(24),
+  });
+
+  const emailDelivery = await sendVerificationEmail({ to: user.email, token });
+  return emailDelivery; // { sent: true } | { sent: false, verificationUrl }
+};
+
 const changePassword = async ({ userId, oldPassword, newPassword }) => {
   const user = await db.User.findByPk(userId);
   if (!user) {
@@ -134,7 +156,7 @@ const changePassword = async ({ userId, oldPassword, newPassword }) => {
 
 const forgotPassword = async ({ email }) => {
   const user = await db.User.findOne({ where: { email } });
-  if (!user) return { sent: false, url: null };  // never reveal existence
+  if (!user) return { sent: false, url: null }; // never reveal existence
 
   const rawToken = generateVerificationToken();
   const token_hash = hashToken(rawToken);
@@ -165,6 +187,7 @@ const resetPassword = async ({ token, newPassword }) => {
   );
   return { reset: true, email: record.user.email };
 };
+
 const getLoginHistory = async ({ userId, limit = 20 }) => {
   const rows = await db.LoginHistory.findAll({
     where: { user_id: userId },
@@ -178,15 +201,91 @@ const getLoginHistory = async ({ userId, limit = 20 }) => {
     at: r.created_at,
   }));
 };
+
+const getMe = async ({ userId }) => {
+  const user = await db.User.findByPk(userId, {
+    include: [{ model: db.Role, as: 'role' }],
+  });
+  if (!user) throw new ApiError(404, 'User not found');
+  return publicUser(user);
+};
+
+const updateMe = async ({ userId, patch }) => {
+  const user = await db.User.findByPk(userId, {
+    include: [{ model: db.Role, as: 'role' }],
+  });
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const WRITABLE = [
+    'display_name',
+    'first_name',
+    'last_name',
+    'avatar_url',
+    'address_street',
+    'address_city',
+    'address_country',
+    'address_postal_code',
+  ];
+
+  // Map camelCase keys the frontend sends → snake_case columns.
+  const incoming = {
+    display_name: patch.displayName,
+    first_name: patch.firstName,
+    last_name: patch.lastName,
+    avatar_url: patch.avatarUrl,
+    address_street: patch.addressStreet,
+    address_city: patch.addressCity,
+    address_country: patch.addressCountry,
+    address_postal_code: patch.addressPostalCode,
+  };
+
+  for (const field of WRITABLE) {
+    if (incoming[field] !== undefined) {
+      // display_name is NOT NULL — guard against blanking it out.
+      if (field === 'display_name') {
+        const v = (incoming[field] ?? '').trim();
+        if (!v) throw new ApiError(400, 'displayName cannot be empty');
+        user.display_name = v;
+      } else {
+        user[field] = incoming[field] === '' ? null : incoming[field];
+      }
+    }
+  }
+
+  await user.save(); // model validators (e.g. avatar_url URL check) run here
+  return publicUser(user);
+};
+
 // Strips sensitive fields — password_hash never leaves the service.
 const publicUser = (user) => ({
   id: user.id,
   email: user.email,
   displayName: user.display_name,
+  firstName: user.first_name ?? null,
+  lastName: user.last_name ?? null,
+  fullName: user.fullName ?? null, // model getter: first + last when present
+  avatarUrl: user.avatar_url ?? null,
+  address: {
+    street: user.address_street ?? null,
+    city: user.address_city ?? null,
+    country: user.address_country ?? null,
+    postalCode: user.address_postal_code ?? null,
+  },
   roleId: user.role_id,
-  role: user.role ? user.role.name : null, // ← add: role NAME, for the frontend
+  role: user.role ? user.role.name : null, // role NAME, for the frontend
   isActive: user.is_active,
   isVerified: user.email_verified_at !== null,
 });
 
-module.exports = { register, login, verifyEmail, changePassword, forgotPassword, resetPassword, getLoginHistory };
+module.exports = {
+  register,
+  login,
+  verifyEmail,
+  resendVerification,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  getLoginHistory,
+  getMe,
+  updateMe,
+};

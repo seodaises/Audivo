@@ -4,7 +4,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
-// POST /api/auth/register  — create account + verification token
+// POST /api/auth/register  — create account, sends verification email
 router.post('/register', authController.register);
 
 // POST /api/auth/login     — exchange credentials for a JWT
@@ -12,6 +12,9 @@ router.post('/login', authController.login);
 
 // GET  /api/auth/verify-email?token=...  — consume token, mark email verified
 router.get('/verify-email', authController.verifyEmail);
+
+// POST /api/auth/resend-verification — re-send the verification email (always 200)
+router.post('/resend-verification', authController.resendVerification);
 
 // POST /api/auth/logout          — client discards token; server confirms
 router.post('/logout', protect, authController.logout);
@@ -27,5 +30,11 @@ router.post('/reset-password', authController.resetPassword);
 
 // GET /api/auth/login-history — the current user's recent logins
 router.get('/login-history', protect, authController.loginHistory);
+
+// GET /api/auth/me  — current user's full profile (server-trusted)
+router.get('/me', protect, authController.getMe);
+
+// PUT /api/auth/me  — update current user's profile fields
+router.put('/me', protect, authController.updateMe);
 
 module.exports = router;

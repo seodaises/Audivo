@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from 'react';
-import { api, setToken, clearToken } from '../api/client';
+import { api, setToken, clearToken, getToken } from '../api/client';
 import { ROLES } from '../auth/permissions';
 
 const AuthContext = createContext(null);
@@ -9,9 +9,19 @@ const shapeUser = (u) => {
   const key = (u.role || '').toLowerCase().replace(/\s+/g, '_');
   const role = ROLES[key] || { key, label: u.role || 'Unknown', level: 0, permissions: [] };
   return {
-    id: u.id, name: u.displayName, email: u.email,
-    role: role.label, roleKey: role.key, level: role.level,
-    permissions: role.permissions, isVerified: u.isVerified,
+    id: u.id,
+    name: u.displayName,
+    email: u.email,
+    firstName: u.firstName ?? null,
+    lastName: u.lastName ?? null,
+    fullName: u.fullName ?? null,
+    avatarUrl: u.avatarUrl ?? null,
+    address: u.address ?? { street: null, city: null, country: null, postalCode: null },
+    role: role.label,
+    roleKey: role.key,
+    level: role.level,
+    permissions: role.permissions,
+    isVerified: u.isVerified,
   };
 };
 
@@ -23,12 +33,15 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Shared: store token + shaped user. Used by both login and register.
-  const applySession = (data) => {
-    setToken(data.token);
-    const shaped = shapeUser(data.user);
+  const persist = (shaped) => {
     setUser(shaped);
     localStorage.setItem('audivo-user', JSON.stringify(shaped));
+  };
+
+  // Shared: store token + shaped user.
+  const applySession = (data) => {
+    setToken(data.token);
+    persist(shapeUser(data.user));
   };
 
   const login = async (email, password) => {
@@ -41,17 +54,22 @@ export function AuthProvider({ children }) {
     finally { setLoading(false); }
   };
 
-  // Register, then log straight in. (When you enable email verification later,
-  // swap the auto-login for a "check your email" screen instead.)
+
   const register = async (displayName, email, password) => {
     setLoading(true); setError(null);
     try {
       await api('/auth/register', { method: 'POST', body: { displayName, email, password } });
-      const { data } = await api('/auth/login', { method: 'POST', body: { email, password } });
-      applySession(data);
       return true;
     } catch (err) { setError(err.message); return false; }
     finally { setLoading(false); }
+  };
+
+  const resendVerification = async (email) => {
+    setError(null);
+    try {
+      await api('/auth/resend-verification', { method: 'POST', body: { email } });
+      return true;
+    } catch (err) { setError(err.message); return false; }
   };
 
   const logout = async () => {
@@ -61,10 +79,35 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Pull the authoritative profile from the server (GET /api/auth/me).
+  const refreshUser = async () => {
+    if (!getToken()) return null;
+    try {
+      const { data } = await api('/auth/me');
+      const shaped = shapeUser(data);
+      persist(shaped);
+      return shaped;
+    } catch { return null; }
+  };
+
+  const updateProfile = async (patch) => {
+    setLoading(true); setError(null);
+    try {
+      const { data } = await api('/auth/me', { method: 'PUT', body: patch });
+      persist(shapeUser(data));
+      return true;
+    } catch (err) { setError(err.message); return false; }
+    finally { setLoading(false); }
+  };
+
   const can = (permission) => !!user?.permissions?.includes(permission);
 
   return (
-    <AuthContext.Provider value={{ user, error, loading, login, register, logout, can }}>
+    <AuthContext.Provider value={{
+      user, error, loading,
+      login, register, resendVerification, logout,
+      refreshUser, updateProfile, can,
+    }}>
       {children}
     </AuthContext.Provider>
   );

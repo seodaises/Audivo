@@ -1,10 +1,10 @@
-// src/components/layout/Header.jsx  (updated for the app shell)
-import { AppBar, Toolbar, Box, Typography, IconButton, Stack, Avatar, Menu, MenuItem, Button, Chip } from '@mui/material';
+import { AppBar, Toolbar, Box, Typography, IconButton, Stack, Menu, MenuItem, Button, Chip } from '@mui/material';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded';
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useColorMode } from '../../context/ColorModeContext';
@@ -40,19 +40,20 @@ export default function Header() {
         {user ? (
           <>
             <Chip label={user.role} color="primary" variant="outlined" size="small"
-              sx={{ mr: 1, display: { xs: 'none', sm: 'flex' } }} />
-            <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ p: 0.5 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>{user.name.charAt(0)}</Avatar>
+              sx={{ mr: 0.5, display: { xs: 'none', sm: 'flex' } }} />
+            {/* Avatar now lives at the bottom of the Sidebar. This compact menu
+                keeps account actions reachable from the top bar. */}
+            <IconButton onClick={(e) => setAnchor(e.currentTarget)} color="inherit" aria-label="account menu">
+              <MoreVertRoundedIcon />
             </IconButton>
             <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
-  <MenuItem disabled>{user.email}</MenuItem>
-  <MenuItem onClick={() => { setAnchor(null); navigate('/change-password'); }}>
-    <LockResetRoundedIcon fontSize="small" sx={{ mr: 1 }} /> Change password
-  </MenuItem>
-  <MenuItem onClick={handleLogout}>
-    <LogoutRoundedIcon fontSize="small" sx={{ mr: 1 }} /> Log out
-  </MenuItem>
-</Menu>
+              <MenuItem onClick={() => { setAnchor(null); navigate('/change-password'); }}>
+                <LockResetRoundedIcon fontSize="small" sx={{ mr: 1 }} /> Change password
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <LogoutRoundedIcon fontSize="small" sx={{ mr: 1 }} /> Log out
+              </MenuItem>
+            </Menu>
           </>
         ) : (
           <Button variant="contained" color="primary" disableElevation onClick={() => navigate('/login')}>

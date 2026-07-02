@@ -1,5 +1,8 @@
-// src/components/layout/Sidebar.jsx
-import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider, Box, Typography } from '@mui/material';
+import { useState } from 'react';
+import {
+  Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider,
+  Box, Typography, Avatar, ButtonBase, Chip,
+} from '@mui/material';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
@@ -13,6 +16,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS } from '../../auth/permissions';
+import ProfileDialog from '../ProfileDialog';
 
 const DRAWER_WIDTH = 240;
 
@@ -36,6 +40,7 @@ export default function Sidebar() {
   const { user, can } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const visibleGated = gatedItems.filter((item) => can(item.permission)); // ← RBAC in one line
 
@@ -47,25 +52,61 @@ export default function Sidebar() {
     </ListItemButton>
   );
 
+  const initial = (user?.name || user?.email || '?').charAt(0).toUpperCase();
+
   return (
     <Drawer variant="permanent"
       sx={{
         width: DRAWER_WIDTH, flexShrink: 0, display: { xs: 'none', md: 'block' },
         [`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: 'border-box', borderRight: 1, borderColor: 'divider' },
       }}>
-      <Toolbar /> {/* spacer so the list starts below the fixed header */}
-      <Box sx={{ overflow: 'auto', py: 1 }}>
-        <List>{baseItems.map(renderItem)}</List>
-        {visibleGated.length > 0 && (
+      <Toolbar /> {/* spacer so the content starts below the fixed header */}
+
+      {/* Flex column: nav scrolls, avatar footer stays pinned to the bottom. */}
+      <Box sx={{ height: 'calc(100% - 64px)', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ overflow: 'auto', py: 1, flexGrow: 1 }}>
+          <List>{baseItems.map(renderItem)}</List>
+          {visibleGated.length > 0 && (
+            <>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="overline" sx={{ px: 3, color: 'text.secondary' }}>
+                {user.role} tools
+              </Typography>
+              <List>{visibleGated.map(renderItem)}</List>
+            </>
+          )}
+        </Box>
+
+        {/* --- Profile footer (moved here from the Header) --- */}
+        {user && (
           <>
-            <Divider sx={{ my: 1 }} />
-            <Typography variant="overline" sx={{ px: 3, color: 'text.secondary' }}>
-              {user.role} tools
-            </Typography>
-            <List>{visibleGated.map(renderItem)}</List>
+            <Divider />
+            <ButtonBase
+              onClick={() => setProfileOpen(true)}
+              sx={{
+                p: 1.5, width: '100%', justifyContent: 'flex-start', gap: 1.5,
+                borderRadius: 0, textAlign: 'left',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+              aria-label="Open profile"
+            >
+              <Avatar src={user.avatarUrl || undefined} sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}>
+                {user.avatarUrl ? null : initial}
+              </Avatar>
+              <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                  {user.fullName || user.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                  {user.email}
+                </Typography>
+              </Box>
+            </ButtonBase>
           </>
         )}
       </Box>
+
+      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
     </Drawer>
   );
 }

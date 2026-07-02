@@ -5,17 +5,17 @@ const { success } = require('../utils/response');
 const ApiError = require('../utils/ApiError');
 
 const register = catchAsync(async (req, res) => {
-  const { email, password, displayName } = req.body;
+  const { email, password, displayName } = req.body || {};
   if (!email || !password || !displayName) {
     throw new ApiError(400, 'email, password, and displayName are required');
   }
 
   const result = await authService.register({ email, password, displayName });
-  return success(res, 201, 'Registration successful', result);
+  return success(res, 201, 'Registration successful. Check your email to verify your account.', result);
 });
 
 const login = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
   if (!email || !password) throw new ApiError(400, 'email and password are required');
 
   const result = await authService.login({
@@ -42,6 +42,15 @@ const verifyEmail = catchAsync(async (req, res) => {
   return success(res, 200, 'Email verified successfully', result);
 });
 
+const resendVerification = catchAsync(async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) throw new ApiError(400, 'email is required');
+
+  await authService.resendVerification({ email });
+  // Vague + always 200: never reveal whether the email exists or is verified.
+  return success(res, 200, 'If that email needs verification, a new link has been sent', null);
+});
+
 const logout = catchAsync(async (req, res) => {
   return success(res, 200, 'Logged out successfully', null);
 });
@@ -61,22 +70,45 @@ const changePassword = catchAsync(async (req, res) => {
 });
 
 const forgotPassword = catchAsync(async (req, res) => {
-  const { email } = req.body;
+  const { email } = req.body || {};
   if (!email) throw new ApiError(400, 'email is required');
 
   const result = await authService.forgotPassword({ email });
   // Vague + always 200: never reveal whether the email exists.
   return success(res, 200, 'If that email is registered, a reset link has been sent', {
-    devResetUrl: result.url,   // null in production
+    devResetUrl: result.url, // null in production
   });
 });
 
 const resetPassword = catchAsync(async (req, res) => {
-  const { token, newPassword } = req.body;
+  const { token, newPassword } = req.body || {};
   if (!token || !newPassword) throw new ApiError(400, 'token and newPassword are required');
 
   const result = await authService.resetPassword({ token, newPassword });
   return success(res, 200, 'Password reset successfully', result);
 });
 
-module.exports = { register, login, loginHistory, verifyEmail, logout, changePassword, forgotPassword, resetPassword };
+// --- profile (Phase 2) ---
+const getMe = catchAsync(async (req, res) => {
+  const result = await authService.getMe({ userId: req.user.id });
+  return success(res, 200, 'Profile retrieved', result);
+});
+
+const updateMe = catchAsync(async (req, res) => {
+  const result = await authService.updateMe({ userId: req.user.id, patch: req.body || {} });
+  return success(res, 200, 'Profile updated', result);
+});
+
+module.exports = {
+  register,
+  login,
+  loginHistory,
+  verifyEmail,
+  resendVerification,
+  logout,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  getMe,
+  updateMe,
+};

@@ -7,16 +7,21 @@ module.exports = (sequelize, DataTypes) => {
       // one role per user
       User.belongsTo(models.Role, { foreignKey: 'role_id', as: 'role' });
       User.hasMany(models.EmailVerificationToken, {
-  foreignKey: 'user_id',
-  as: 'verificationTokens',
-});
-User.hasMany(models.PasswordResetToken, { foreignKey: 'user_id', as: 'resetTokens' });
-User.hasMany(models.LoginHistory, { foreignKey: 'user_id', as: 'loginHistory' });
+        foreignKey: 'user_id',
+        as: 'verificationTokens',
+      });
+      User.hasMany(models.PasswordResetToken, { foreignKey: 'user_id', as: 'resetTokens' });
+      User.hasMany(models.LoginHistory, { foreignKey: 'user_id', as: 'loginHistory' });
     }
 
     // derived, not stored — keeps "when" as the single source of truth
     get isVerified() {
       return this.email_verified_at !== null;
+    }
+
+    get fullName() {
+      const parts = [this.first_name, this.last_name].filter(Boolean);
+      return parts.length ? parts.join(' ') : null;
     }
   }
 
@@ -40,6 +45,48 @@ User.hasMany(models.LoginHistory, { foreignKey: 'user_id', as: 'loginHistory' })
         type: DataTypes.STRING(100),
         allowNull: false,
       },
+
+      // --- profile fields (added by 20260702120000-add-profile-fields-to-users) ---
+      first_name: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      last_name: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      avatar_url: {
+        type: DataTypes.STRING(2048),
+        allowNull: true,
+        validate: {
+          // Only validate when a value is present — NULL/empty stays allowed.
+          isUrlIfPresent(value) {
+            if (value == null || value === '') return;
+            // Lightweight guard: must look like an http(s) URL.
+            if (!/^https?:\/\/.+/i.test(value)) {
+              throw new Error('avatar_url must be a valid http(s) URL');
+            }
+          },
+        },
+      },
+      address_street: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+      address_city: {
+        type: DataTypes.STRING(120),
+        allowNull: true,
+      },
+      address_country: {
+        type: DataTypes.STRING(120),
+        allowNull: true,
+      },
+      address_postal_code: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
+      // ---------------------------------------------------------------------------
+
       is_active: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
