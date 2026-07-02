@@ -16,12 +16,20 @@ const register = catchAsync(async (req, res) => {
 
 const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    throw new ApiError(400, 'email and password are required');
-  }
+  if (!email || !password) throw new ApiError(400, 'email and password are required');
 
-  const result = await authService.login({ email, password });
+  const result = await authService.login({
+    email,
+    password,
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
   return success(res, 200, 'Login successful', result);
+});
+
+const loginHistory = catchAsync(async (req, res) => {
+  const result = await authService.getLoginHistory({ userId: req.user.id });
+  return success(res, 200, 'Login history retrieved', result);
 });
 
 const verifyEmail = catchAsync(async (req, res) => {
@@ -71,4 +79,4 @@ const resetPassword = catchAsync(async (req, res) => {
   return success(res, 200, 'Password reset successfully', result);
 });
 
-module.exports = { register, login, verifyEmail, logout, changePassword, forgotPassword, resetPassword };
+module.exports = { register, login, loginHistory, verifyEmail, logout, changePassword, forgotPassword, resetPassword };

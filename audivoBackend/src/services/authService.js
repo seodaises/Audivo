@@ -52,36 +52,37 @@ const register = async ({ email, password, displayName }) => {
   };
 };
 
-const login = async ({ email, password }) => {
+const login = async ({ email, password, ipAddress, userAgent }) => {
   const user = await db.User.findOne({
     where: { email },
     include: [{ model: db.Role, as: 'role' }],
   });
 
-  if (!user) {
-    throw new ApiError(401, 'Invalid credentials');
-  }
+  if (!user) throw new ApiError(401, 'Invalid credentials');
+
   const ok = await comparePassword(password, user.password_hash);
-  if (!ok) {
-    throw new ApiError(401, 'Invalid credentials');
-  }
-  if (!user.is_active) {
-    throw new ApiError(403, 'Account is disabled');
+  if (!ok) throw new ApiError(401, 'Invalid credentials');
+  if (!user.is_active) throw new ApiError(403, 'Account is disabled');
+
+  // Dev-permissive: unverified users may log in unless this flag is turned on.
+  if (process.env.REQUIRE_VERIFIED_EMAIL === 'true' && !user.email_verified_at) {
+    throw new ApiError(403, 'Please verify your email before logging in');
   }
 
   user.last_login_at = new Date();
   await user.save();
 
-  const token = generateToken({ sub: user.id, role: user.role.name });
+  // login_history is the source of truth for "when/where did I sign in"
+  await db.LoginHistory.create({
+    user_id: user.id,
+    ip_address: ipAddress || null,
+    user_agent: userAgent || null,
+  });
 
+  const token = generateToken({ sub: user.id, role: user.role.name });
   return { token, user: publicUser(user) };
 };
 
-/**
- * Verify an email via its token.
- * - rejects unknown, already-used, or expired tokens
- * - stamps used_at on the token and email_verified_at on the user
- */
 const verifyEmail = async (token) => {
   const record = await db.EmailVerificationToken.findOne({
     where: { token },
@@ -164,14 +165,28 @@ const resetPassword = async ({ token, newPassword }) => {
   );
   return { reset: true, email: record.user.email };
 };
+const getLoginHistory = async ({ userId, limit = 20 }) => {
+  const rows = await db.LoginHistory.findAll({
+    where: { user_id: userId },
+    order: [['created_at', 'DESC']],
+    limit,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    ipAddress: r.ip_address,
+    userAgent: r.user_agent,
+    at: r.created_at,
+  }));
+};
 // Strips sensitive fields — password_hash never leaves the service.
 const publicUser = (user) => ({
   id: user.id,
   email: user.email,
   displayName: user.display_name,
   roleId: user.role_id,
+  role: user.role ? user.role.name : null, // ← add: role NAME, for the frontend
   isActive: user.is_active,
   isVerified: user.email_verified_at !== null,
 });
 
-module.exports = { register, login, verifyEmail, changePassword, forgotPassword, resetPassword };
+module.exports = { register, login, verifyEmail, changePassword, forgotPassword, resetPassword, getLoginHistory };

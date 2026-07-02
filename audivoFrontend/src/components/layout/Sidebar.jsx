@@ -1,0 +1,71 @@
+// src/components/layout/Sidebar.jsx
+import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider, Box, Typography } from '@mui/material';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
+import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded';
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
+import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
+import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { PERMISSIONS } from '../../auth/permissions';
+
+const DRAWER_WIDTH = 240;
+
+const baseItems = [
+  { label: 'Home', icon: <HomeRoundedIcon />, path: '/' },
+  { label: 'Browse', icon: <SearchRoundedIcon />, path: '/browse' },
+  { label: 'Library', icon: <LibraryMusicRoundedIcon />, path: '/library' },
+];
+
+const gatedItems = [
+  { label: 'Upload Songs',  icon: <CloudUploadRoundedIcon />,        path: '/upload',    permission: PERMISSIONS.UPLOAD_SONGS },
+  { label: 'Delete Songs',  icon: <DeleteRoundedIcon />,             path: '/songs',     permission: PERMISSIONS.DELETE_SONGS },
+  { label: 'Feature Songs', icon: <StarRoundedIcon />,               path: '/feature',   permission: PERMISSIONS.FEATURE_SONGS },
+  { label: 'Manage Users',  icon: <PeopleRoundedIcon />,             path: '/users',     permission: PERMISSIONS.MANAGE_USERS },
+  { label: 'Analytics',     icon: <BarChartRoundedIcon />,           path: '/analytics', permission: PERMISSIONS.VIEW_ANALYTICS },
+  { label: 'Moderate',      icon: <ForumRoundedIcon />,              path: '/moderate',  permission: PERMISSIONS.MODERATE_COMMENTS },
+  { label: 'Manage Roles',  icon: <AdminPanelSettingsRoundedIcon />, path: '/roles',     permission: PERMISSIONS.MANAGE_ROLES },
+];
+
+export default function Sidebar() {
+  const { user, can } = useAuth();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const visibleGated = gatedItems.filter((item) => can(item.permission)); // ← RBAC in one line
+
+  const renderItem = (item) => (
+    <ListItemButton key={item.path} selected={pathname === item.path}
+      onClick={() => navigate(item.path)} sx={{ borderRadius: 2, mx: 1, mb: 0.5 }}>
+      <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+      <ListItemText primary={item.label} />
+    </ListItemButton>
+  );
+
+  return (
+    <Drawer variant="permanent"
+      sx={{
+        width: DRAWER_WIDTH, flexShrink: 0, display: { xs: 'none', md: 'block' },
+        [`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: 'border-box', borderRight: 1, borderColor: 'divider' },
+      }}>
+      <Toolbar /> {/* spacer so the list starts below the fixed header */}
+      <Box sx={{ overflow: 'auto', py: 1 }}>
+        <List>{baseItems.map(renderItem)}</List>
+        {visibleGated.length > 0 && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="overline" sx={{ px: 3, color: 'text.secondary' }}>
+              {user.role} tools
+            </Typography>
+            <List>{visibleGated.map(renderItem)}</List>
+          </>
+        )}
+      </Box>
+    </Drawer>
+  );
+}

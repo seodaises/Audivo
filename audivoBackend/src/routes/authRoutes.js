@@ -25,4 +25,7 @@ router.post('/forgot-password', authController.forgotPassword);
 // POST /api/auth/reset-password  — consume token, set new password
 router.post('/reset-password', authController.resetPassword);
 
+// GET /api/auth/login-history — the current user's recent logins
+router.get('/login-history', protect, authController.loginHistory);
+
 module.exports = router;

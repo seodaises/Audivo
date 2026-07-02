@@ -11,6 +11,7 @@ module.exports = (sequelize, DataTypes) => {
   as: 'verificationTokens',
 });
 User.hasMany(models.PasswordResetToken, { foreignKey: 'user_id', as: 'resetTokens' });
+User.hasMany(models.LoginHistory, { foreignKey: 'user_id', as: 'loginHistory' });
     }
 
     // derived, not stored — keeps "when" as the single source of truth
