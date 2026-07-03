@@ -11,8 +11,9 @@ const {
 } = require('../utils/verificationToken');
 
 const REGISTERABLE_ROLES = ['Listener', 'Artist'];
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
-const register = async ({ email, password, displayName, role = 'Listener' }) => {
+const register = async ({ email, password, displayName, username, role = 'Listener' }) => {
   const existing = await db.User.findOne({ where: { email } });
   if (existing) throw new ApiError(409, 'Email already registered');
 
@@ -20,12 +21,31 @@ const register = async ({ email, password, displayName, role = 'Listener' }) => 
     throw new ApiError(400, 'You can only register as a Listener or Artist');
   }
 
+  // Normalize first so "Khawla" and "khawla" can't both be taken, and so the
+  // stored handle always matches the lowercase format the rest of the app expects.
+  const normalizedUsername = String(username || '').trim().toLowerCase();
+  if (!USERNAME_RE.test(normalizedUsername)) {
+    throw new ApiError(
+      400,
+      'username must be 3-20 characters: lowercase letters, numbers, or underscores'
+    );
+  }
+
+  // Friendly pre-check. The DB unique index is the real guarantee (and catches
+  // the rare race where two signups pass this check at the same instant).
+  const usernameTaken = await db.User.findOne({ where: { username: normalizedUsername } });
+  if (usernameTaken) throw new ApiError(409, 'Username already taken');
+
   const roleRow = await db.Role.findOne({ where: { name: role } });
   if (!roleRow) throw new ApiError(500, 'Role not configured');
 
   const password_hash = await hashPassword(password);
   const user = await db.User.create({
-    email, password_hash, display_name: displayName, role_id: roleRow.id,
+    email,
+    password_hash,
+    display_name: displayName,
+    username: normalizedUsername,
+    role_id: roleRow.id,
   });
 
   const token = generateVerificationToken();
@@ -130,7 +150,7 @@ const changePassword = async ({ userId, oldPassword, newPassword }) => {
     throw new ApiError(401, 'Current password is incorrect');
   }
 
-  // Block a no-op change — new must differ from old.
+  // Block a no-op change - new must differ from old.
   const same = await comparePassword(newPassword, user.password_hash);
   if (same) {
     throw new ApiError(400, 'New password must be different from the current one');
@@ -215,7 +235,7 @@ const updateMe = async ({ userId, patch }) => {
     'address_postal_code',
   ];
 
-  // Map camelCase keys the frontend sends → snake_case columns.
+  // Map camelCase keys the frontend sends -> snake_case columns.
   const incoming = {
     display_name: patch.displayName,
     first_name: patch.firstName,
@@ -229,7 +249,7 @@ const updateMe = async ({ userId, patch }) => {
 
   for (const field of WRITABLE) {
     if (incoming[field] !== undefined) {
-      // display_name is NOT NULL — guard against blanking it out.
+      // display_name is NOT NULL - guard against blanking it out.
       if (field === 'display_name') {
         const v = (incoming[field] ?? '').trim();
         if (!v) throw new ApiError(400, 'displayName cannot be empty');
@@ -244,10 +264,11 @@ const updateMe = async ({ userId, patch }) => {
   return publicUser(user);
 };
 
-// Strips sensitive fields — password_hash never leaves the service.
+// Strips sensitive fields - password_hash never leaves the service.
 const publicUser = (user) => ({
   id: user.id,
   email: user.email,
+  username: user.username,
   displayName: user.display_name,
   firstName: user.first_name ?? null,
   lastName: user.last_name ?? null,

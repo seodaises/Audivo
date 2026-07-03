@@ -69,6 +69,38 @@ module.exports = (sequelize, DataTypes) => {
           },
         },
       },
+      // --- identity handle (added by add-username-and-profile-fields migration) ---
+      username: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        unique: true, // mirrors the DB's users_username_unique index
+        validate: {
+          // a-z, 0-9, underscore only — keeps handles clean and URL-safe
+          is: {
+            args: /^[a-z0-9_]+$/,
+            msg: 'username may contain only lowercase letters, numbers, and underscores',
+          },
+          len: {
+            args: [3, 20],
+            msg: 'username must be between 3 and 20 characters',
+          },
+        },
+      },
+
+      // --- extended profile fields (all optional; set via the profile popup) ---
+      gender: {
+        type: DataTypes.STRING(30),
+        allowNull: true,
+      },
+      birthday: {
+        type: DataTypes.DATEONLY, // 'YYYY-MM-DD', no time component
+        allowNull: true,
+      },
+      phone_number: {
+        type: DataTypes.STRING(30),
+        allowNull: true,
+      },
+
       address_street: {
         type: DataTypes.STRING(255),
         allowNull: true,

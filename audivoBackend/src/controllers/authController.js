@@ -5,12 +5,12 @@ const { success } = require('../utils/response');
 const ApiError = require('../utils/ApiError');
 
 const register = catchAsync(async (req, res) => {
-  const { email, password, displayName, role } = req.body || {};
-  if (!email || !password || !displayName) {
-    throw new ApiError(400, 'email, password, and displayName are required');
+  const { email, password, displayName, username, role } = req.body || {};
+  if (!email || !password || !displayName || !username) {
+    throw new ApiError(400, 'email, password, displayName, and username are required');
   }
 
-  const result = await authService.register({ email, password, displayName, role });
+  const result = await authService.register({ email, password, displayName, username, role });
   return success(res, 201, 'Registration successful. Check your email to verify your account.', result);
 });
 
