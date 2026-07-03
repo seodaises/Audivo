@@ -16,7 +16,7 @@ export default function LoginPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
+    <Box sx={{display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh",}}> 
       <Card sx={{ maxWidth: 400, width: '100%' }} elevation={3}>
         <CardContent sx={{ p: 4 }}>
           <Stack direction="row" alignItems="center" spacing={1} justifyContent="center" sx={{ mb: 3 }}>

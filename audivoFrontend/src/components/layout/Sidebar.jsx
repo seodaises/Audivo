@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import {
-  Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider,
-  Box, Typography, Avatar, ButtonBase, Chip,
-} from '@mui/material';
+import {Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider, Box, Typography, Avatar, ButtonBase, Chip,} from '@mui/material';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
@@ -42,7 +39,7 @@ export default function Sidebar() {
   const { pathname } = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const visibleGated = gatedItems.filter((item) => can(item.permission)); // ← RBAC in one line
+  const visibleGated = gatedItems.filter((item) => can(item.permission)); 
 
   const renderItem = (item) => (
     <ListItemButton key={item.path} selected={pathname === item.path}
@@ -62,7 +59,6 @@ export default function Sidebar() {
       }}>
       <Toolbar /> {/* spacer so the content starts below the fixed header */}
 
-      {/* Flex column: nav scrolls, avatar footer stays pinned to the bottom. */}
       <Box sx={{ height: 'calc(100% - 64px)', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ overflow: 'auto', py: 1, flexGrow: 1 }}>
           <List>{baseItems.map(renderItem)}</List>
@@ -76,8 +72,7 @@ export default function Sidebar() {
             </>
           )}
         </Box>
-
-        {/* --- Profile footer (moved here from the Header) --- */}
+        
         {user && (
           <>
             <Divider />

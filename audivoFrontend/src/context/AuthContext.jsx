@@ -54,15 +54,14 @@ export function AuthProvider({ children }) {
     finally { setLoading(false); }
   };
 
-
-  const register = async (displayName, email, password) => {
-    setLoading(true); setError(null);
-    try {
-      await api('/auth/register', { method: 'POST', body: { displayName, email, password } });
-      return true;
-    } catch (err) { setError(err.message); return false; }
-    finally { setLoading(false); }
-  };
+   const register = async (displayName, email, password, role) => {
+  setLoading(true); setError(null);
+  try {
+    await api('/auth/register', { method: 'POST', body: { displayName, email, password, role } });
+    return true;
+  } catch (err) { setError(err.message); return false; }
+  finally { setLoading(false); }
+};
 
   const resendVerification = async (email) => {
     setError(null);

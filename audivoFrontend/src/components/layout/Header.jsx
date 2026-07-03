@@ -41,8 +41,6 @@ export default function Header() {
           <>
             <Chip label={user.role} color="primary" variant="outlined" size="small"
               sx={{ mr: 0.5, display: { xs: 'none', sm: 'flex' } }} />
-            {/* Avatar now lives at the bottom of the Sidebar. This compact menu
-                keeps account actions reachable from the top bar. */}
             <IconButton onClick={(e) => setAnchor(e.currentTarget)} color="inherit" aria-label="account menu">
               <MoreVertRoundedIcon />
             </IconButton>

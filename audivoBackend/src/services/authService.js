@@ -10,43 +10,31 @@ const {
   hashToken,
 } = require('../utils/verificationToken');
 
-const register = async ({ email, password, displayName }) => {
+const REGISTERABLE_ROLES = ['Listener', 'Artist'];
+
+const register = async ({ email, password, displayName, role = 'Listener' }) => {
   const existing = await db.User.findOne({ where: { email } });
-  if (existing) {
-    throw new ApiError(409, 'Email already registered');
+  if (existing) throw new ApiError(409, 'Email already registered');
+
+  if (!REGISTERABLE_ROLES.includes(role)) {
+    throw new ApiError(400, 'You can only register as a Listener or Artist');
   }
 
-  const listener = await db.Role.findOne({ where: { name: 'Listener' } });
-  if (!listener) {
-    throw new ApiError(500, 'Default role not configured');
-  }
+  const roleRow = await db.Role.findOne({ where: { name: role } });
+  if (!roleRow) throw new ApiError(500, 'Role not configured');
 
   const password_hash = await hashPassword(password);
-
   const user = await db.User.create({
-    email,
-    password_hash,
-    display_name: displayName,
-    role_id: listener.id,
-
+    email, password_hash, display_name: displayName, role_id: roleRow.id,
   });
 
   const token = generateVerificationToken();
   await db.EmailVerificationToken.create({
-    user_id: user.id,
-    token,
-    expires_at: expiryFromNow(24),
+    user_id: user.id, token, expires_at: expiryFromNow(24),
   });
 
-  const emailDelivery = await sendVerificationEmail({
-    to: user.email,
-    token,
-  });
-
-  return {
-    user: publicUser(user),
-    emailDelivery,
-  };
+  const emailDelivery = await sendVerificationEmail({ to: user.email, token });
+  return { user: publicUser(user), emailDelivery };
 };
 
 const login = async ({ email, password, ipAddress, userAgent }) => {
