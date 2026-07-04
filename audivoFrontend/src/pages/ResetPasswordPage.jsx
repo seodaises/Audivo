@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Box, Card, CardContent, Typography, Stack, TextField, Button, Alert, Link } from '@mui/material';
 import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { api } from '../api/client';
+import { LOGIN } from '../constants/route_constant';
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -22,7 +23,7 @@ export default function ResetPasswordPage() {
     try {
       await api('/auth/reset-password', { method: 'POST', body: { token, newPassword: password } });
       setDone(true);
-      setTimeout(() => navigate('/login'), 1500);
+      setTimeout(() => navigate(LOGIN), 1500);
     } catch (e) { setErr(e.message); } // e.g. "Reset token has expired"
     finally { setLoading(false); }
   };
@@ -49,7 +50,7 @@ export default function ResetPasswordPage() {
           </Stack>
 
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-            <Link component={RouterLink} to="/login">Back to login</Link>
+            <Link component={RouterLink} to={LOGIN}>Back to login</Link>
           </Typography>
         </CardContent>
       </Card>

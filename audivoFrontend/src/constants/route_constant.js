@@ -1,1 +1,18 @@
-export const LIBRARY="/library";
+export const LOGIN = "/login";
+export const REGISTER = "/register";
+export const FORGOT_PASSWORD = "/forgot-password";
+export const RESET_PASSWORD = "/reset-password";
+
+
+export const DASHBOARD = "/";
+export const CHANGE_PASSWORD = "/change-password";
+
+export const BROWSE = "/browse";
+export const LIBRARY = "/library";
+export const UPLOAD = "/upload";
+export const SONGS = "/songs";
+export const FEATURE = "/feature";
+export const USERS = "/users";
+export const ANALYTICS = "/analytics";
+export const MODERATE = "/moderate";
+export const ROLES = "/roles";

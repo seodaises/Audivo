@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Box, Card, CardContent, Typography, Stack, TextField, Button, Alert, Link } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { api } from '../api/client';
+import { LOGIN } from '../constants/route_constant';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -48,7 +49,7 @@ export default function ForgotPasswordPage() {
           </Stack>
 
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-            <Link component={RouterLink} to="/login">Back to login</Link>
+            <Link component={RouterLink} to={LOGIN}>Back to login</Link>
           </Typography>
         </CardContent>
       </Card>

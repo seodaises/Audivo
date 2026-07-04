@@ -3,6 +3,7 @@ import { Box, Card, CardContent, Typography, Stack, TextField, Button, Alert, Li
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import { useAuth } from '../context/AuthContext';
+import { DASHBOARD, FORGOT_PASSWORD, REGISTER } from '../constants/route_constant';
 
 export default function LoginPage() {
   const { login, error, loading } = useAuth();
@@ -12,7 +13,7 @@ export default function LoginPage() {
 
   const handleSubmit = async () => {
     const ok = await login(email, password);
-    if (ok) navigate('/');
+    if (ok) navigate(DASHBOARD);
   };
 
   return (
@@ -39,9 +40,9 @@ export default function LoginPage() {
             </Button>
           </Stack>
 <Stack spacing={0.5} sx={{ mt: 2 }} alignItems="center">
-  <Link component={RouterLink} to="/forgot-password" variant="body2">Forgot password?</Link>
+  <Link component={RouterLink} to={FORGOT_PASSWORD} variant="body2">Forgot password?</Link>
   <Typography variant="body2">
-    No account? <Link component={RouterLink} to="/register">Sign up</Link>
+    No account? <Link component={RouterLink} to={REGISTER}>Sign up</Link>
   </Typography>
 </Stack>
         </CardContent>

@@ -1,14 +1,11 @@
 import { useState } from 'react';
-import {
-  Container, Card, CardContent, Typography, ToggleButtonGroup, ToggleButton,
-  TextField, Button, Checkbox, FormControlLabel, Link, Divider, Avatar,
-  Stack, Alert,
-} from '@mui/material';
+import { Container, Card, CardContent, Typography, ToggleButtonGroup, ToggleButton, TextField, Button, Checkbox, FormControlLabel, Link, Divider, Avatar, Stack, Alert,} from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import HeadphonesRoundedIcon from '@mui/icons-material/HeadphonesRounded';
 import MicRoundedIcon from '@mui/icons-material/MicRounded';
 import { useAuth } from '../context/AuthContext';
+import { LOGIN } from '../constants/route_constant';
 
 export default function RegisterPage() {
   const { register, error, loading } = useAuth();
@@ -60,7 +57,7 @@ export default function RegisterPage() {
               We sent a verification link to <b>{email}</b>. Click it to activate
               your {role.toLowerCase()} account.
             </Typography>
-            <Button component={RouterLink} to="/login" variant="contained" disableElevation>
+            <Button component={RouterLink} to={LOGIN} variant="contained" disableElevation>
               Back to login
             </Button>
           </CardContent>
@@ -146,7 +143,7 @@ export default function RegisterPage() {
 
           <Typography variant="body2" align="center">
             Already have an account?{' '}
-            <Link component={RouterLink} to="/login">Log in</Link>
+            <Link component={RouterLink} to={LOGIN}>Log in</Link>
           </Typography>
         </CardContent>
       </Card>

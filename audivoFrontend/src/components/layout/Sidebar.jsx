@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import {Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider, Box, Typography, Avatar, ButtonBase, Chip,} from '@mui/material';
+import {Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Divider, Box, Typography,} from '@mui/material';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
@@ -13,31 +12,42 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS } from '../../auth/permissions';
-import ProfileDialog from '../ProfileDialog';
+import ProfileMenu from '../ProfileMenu';
+import {
+  DASHBOARD,
+  BROWSE,
+  LIBRARY,
+  UPLOAD,
+  SONGS,
+  FEATURE,
+  USERS,
+  ANALYTICS,
+  MODERATE,
+  ROLES,
+} from '../../constants/route_constant';
 
 const DRAWER_WIDTH = 240;
 
 const baseItems = [
-  { label: 'Home', icon: <HomeRoundedIcon />, path: '/' },
-  { label: 'Browse', icon: <SearchRoundedIcon />, path: '/browse' },
-  { label: 'Library', icon: <LibraryMusicRoundedIcon />, path: '/library' },
+  { label: 'Home', icon: <HomeRoundedIcon />, path: DASHBOARD },
+  { label: 'Browse', icon: <SearchRoundedIcon />, path: BROWSE },
+  { label: 'Library', icon: <LibraryMusicRoundedIcon />, path: LIBRARY },
 ];
 
 const gatedItems = [
-  { label: 'Upload Songs',  icon: <CloudUploadRoundedIcon />,        path: '/upload',    permission: PERMISSIONS.UPLOAD_SONGS },
-  { label: 'Delete Songs',  icon: <DeleteRoundedIcon />,             path: '/songs',     permission: PERMISSIONS.DELETE_SONGS },
-  { label: 'Feature Songs', icon: <StarRoundedIcon />,               path: '/feature',   permission: PERMISSIONS.FEATURE_SONGS },
-  { label: 'Manage Users',  icon: <PeopleRoundedIcon />,             path: '/users',     permission: PERMISSIONS.MANAGE_USERS },
-  { label: 'Analytics',     icon: <BarChartRoundedIcon />,           path: '/analytics', permission: PERMISSIONS.VIEW_ANALYTICS },
-  { label: 'Moderate',      icon: <ForumRoundedIcon />,              path: '/moderate',  permission: PERMISSIONS.MODERATE_COMMENTS },
-  { label: 'Manage Roles',  icon: <AdminPanelSettingsRoundedIcon />, path: '/roles',     permission: PERMISSIONS.MANAGE_ROLES },
+  { label: 'Upload Songs',  icon: <CloudUploadRoundedIcon />,        path: UPLOAD,    permission: PERMISSIONS.UPLOAD_SONGS },
+  { label: 'Delete Songs',  icon: <DeleteRoundedIcon />,             path: SONGS,     permission: PERMISSIONS.DELETE_SONGS },
+  { label: 'Feature Songs', icon: <StarRoundedIcon />,               path: FEATURE,   permission: PERMISSIONS.FEATURE_SONGS },
+  { label: 'Manage Users',  icon: <PeopleRoundedIcon />,             path: USERS,     permission: PERMISSIONS.MANAGE_USERS },
+  { label: 'Analytics',     icon: <BarChartRoundedIcon />,           path: ANALYTICS, permission: PERMISSIONS.VIEW_ANALYTICS },
+  { label: 'Moderate',      icon: <ForumRoundedIcon />,              path: MODERATE,  permission: PERMISSIONS.MODERATE_COMMENTS },
+  { label: 'Manage Roles',  icon: <AdminPanelSettingsRoundedIcon />, path: ROLES,     permission: PERMISSIONS.MANAGE_ROLES },
 ];
 
 export default function Sidebar() {
   const { user, can } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const visibleGated = gatedItems.filter((item) => can(item.permission)); 
 
@@ -48,8 +58,6 @@ export default function Sidebar() {
       <ListItemText primary={item.label} />
     </ListItemButton>
   );
-
-  const initial = (user?.name || user?.email || '?').charAt(0).toUpperCase();
 
   return (
     <Drawer variant="permanent"
@@ -72,36 +80,14 @@ export default function Sidebar() {
             </>
           )}
         </Box>
-        
+
         {user && (
           <>
             <Divider />
-            <ButtonBase
-              onClick={() => setProfileOpen(true)}
-              sx={{
-                p: 1.5, width: '100%', justifyContent: 'flex-start', gap: 1.5,
-                borderRadius: 0, textAlign: 'left',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-              aria-label="Open profile"
-            >
-              <Avatar src={user.avatarUrl || undefined} sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}>
-                {user.avatarUrl ? null : initial}
-              </Avatar>
-              <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-                  {user.fullName || user.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                  {user.email}
-                </Typography>
-              </Box>
-            </ButtonBase>
+            <ProfileMenu />
           </>
         )}
       </Box>
-
-      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
     </Drawer>
   );
 }

@@ -1,22 +1,16 @@
-import { AppBar, Toolbar, Box, Typography, IconButton, Stack, Menu, MenuItem, Button, Chip } from '@mui/material';
+import { AppBar, Toolbar, Box, Typography, IconButton, Stack, Button, Chip } from '@mui/material';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
-import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
-import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded';
-import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useColorMode } from '../../context/ColorModeContext';
 import { useAuth } from '../../context/AuthContext';
+import { LOGIN } from '../../constants/route_constant';
 
 export default function Header() {
   const { mode, toggle } = useColorMode();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [anchor, setAnchor] = useState(null);
-
-  const handleLogout = () => { setAnchor(null); logout(); navigate('/login'); };
 
   return (
     <AppBar position="fixed" elevation={0} color="default"
@@ -38,23 +32,10 @@ export default function Header() {
         </IconButton>
 
         {user ? (
-          <>
-            <Chip label={user.role} color="primary" variant="outlined" size="small"
-              sx={{ mr: 0.5, display: { xs: 'none', sm: 'flex' } }} />
-            <IconButton onClick={(e) => setAnchor(e.currentTarget)} color="inherit" aria-label="account menu">
-              <MoreVertRoundedIcon />
-            </IconButton>
-            <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
-              <MenuItem onClick={() => { setAnchor(null); navigate('/change-password'); }}>
-                <LockResetRoundedIcon fontSize="small" sx={{ mr: 1 }} /> Change password
-              </MenuItem>
-              <MenuItem onClick={handleLogout}>
-                <LogoutRoundedIcon fontSize="small" sx={{ mr: 1 }} /> Log out
-              </MenuItem>
-            </Menu>
-          </>
+          <Chip label={user.role} color="primary" variant="outlined" size="small"
+            sx={{ ml: 0.5, display: { xs: 'none', sm: 'flex' } }} />
         ) : (
-          <Button variant="contained" color="primary" disableElevation onClick={() => navigate('/login')}>
+          <Button variant="contained" color="primary" disableElevation onClick={() => navigate(LOGIN)}>
             Log in
           </Button>
         )}

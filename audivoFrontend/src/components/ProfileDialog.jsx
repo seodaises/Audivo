@@ -3,6 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Box, Stack, Avatar, Typography, TextField, Button, Chip,
   IconButton, Divider, Alert, Grid, Tooltip,
+  Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
@@ -10,12 +11,18 @@ import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import { useAuth } from '../context/AuthContext';
 
+// Fixed gender options — kept small and inclusive; stored as a plain string.
+const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+
 // Build the initial editable form from the current user object.
 const formFromUser = (u) => ({
   displayName: u?.name ?? '',
   firstName: u?.firstName ?? '',
   lastName: u?.lastName ?? '',
   avatarUrl: u?.avatarUrl ?? '',
+  gender: u?.gender ?? '',
+  birthday: u?.birthday ?? '',           // 'YYYY-MM-DD' or '' (native date input)
+  phoneNumber: u?.phoneNumber ?? '',
   addressStreet: u?.address?.street ?? '',
   addressCity: u?.address?.city ?? '',
   addressCountry: u?.address?.country ?? '',
@@ -114,6 +121,39 @@ export default function ProfileDialog({ open, onClose }) {
                 <TextField label="Last name" fullWidth value={form.lastName} onChange={set('lastName')} />
               </Grid>
             </Grid>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="gender-label">Gender</InputLabel>
+                  <Select
+                    labelId="gender-label"
+                    label="Gender"
+                    value={form.gender}
+                    onChange={set('gender')}
+                  >
+                    <MenuItem value=""><em>Prefer not to say</em></MenuItem>
+                    {GENDER_OPTIONS.filter((o) => o !== 'Prefer not to say').map((opt) => (
+                      <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Birthday"
+                  type="date"
+                  fullWidth
+                  value={form.birthday}
+                  onChange={set('birthday')}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+            </Grid>
+
+            <TextField label="Phone number" fullWidth value={form.phoneNumber} onChange={set('phoneNumber')}
+              placeholder="e.g. +92 300 1234567" />
+
             <TextField label="Avatar URL" fullWidth value={form.avatarUrl} onChange={set('avatarUrl')}
               placeholder="https://…" helperText="Paste an image URL" />
             <Typography variant="overline" color="text.secondary">Address</Typography>
@@ -134,6 +174,9 @@ export default function ProfileDialog({ open, onClose }) {
             <Field label="Email" value={user.email} />
             <Field label="First name" value={user.firstName} />
             <Field label="Last name" value={user.lastName} />
+            <Field label="Gender" value={user.gender} />
+            <Field label="Birthday" value={user.birthday} />
+            <Field label="Phone" value={user.phoneNumber} />
             <Field label="Address" value={addressLine} />
           </Stack>
         )}
