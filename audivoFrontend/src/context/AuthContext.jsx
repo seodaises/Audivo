@@ -25,6 +25,7 @@ const shapeUser = (u) => {
     level: role.level,
     permissions: role.permissions,
     isVerified: u.isVerified,
+    mustChangePassword: u.mustChangePassword ?? false,
   };
 };
 
