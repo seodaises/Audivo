@@ -1,18 +1,27 @@
 'use strict';
 const db = require('../models');
 const ApiError = require('../utils/ApiError');
-
+const { hashPassword, generateTempPassword } = require('../utils/password');
+const { sendTempPasswordEmail } = require('./emailService');
 
 const MAX_ASSIGNABLE_LEVEL = 4; // Admin
+const CREATABLE_ROLES = ['Admin']; 
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
-// Shared projection for a user row in admin views. Intentionally lean:
-// username + display_name + role (+ id so the frontend can target actions).
+// Shared projection for a user row in admin views. Now carries the fields the
+// Manage Users table shows: email, phone, and the active flag.
 const adminUserRow = (user) => ({
   id: user.id,
   username: user.username,
+  email: user.email,
   displayName: user.display_name,
+  phoneNumber: user.phone_number ?? null,
   role: user.role ? user.role.name : null,
   roleLevel: user.role ? user.role.level : null,
+  isActive: user.is_active,
+  gender: user.gender ?? null,
+  birthday: user.birthday ?? null,
+  addressStreet: user.address_street ?? null,
 });
 
 // GET list — paginated. page/limit are clamped to sane bounds so a caller
@@ -99,9 +108,95 @@ const changeUserRole = async ({ actor, targetUserId, newRoleName }) => {
   });
   return adminUserRow(updated);
 };
+  
+const createUser = async ({ actor, email, displayName, username, role = 'Admin' }) => {
+  const cleanEmail = String(email || '').trim();
+  const cleanName = String(displayName || '').trim();
+  const cleanUsername = String(username || '').trim().toLowerCase();
 
+  if (!cleanEmail) throw new ApiError(400, 'email is required');
+  if (!cleanName) throw new ApiError(400, 'displayName is required');
+
+  if (!CREATABLE_ROLES.includes(role)) {
+    throw new ApiError(403, 'That role cannot be created through this dashboard');
+  }
+  if (!USERNAME_RE.test(cleanUsername)) {
+    throw new ApiError(
+      400,
+      'username must be 3-20 characters: lowercase letters, numbers, or underscores'
+    );
+  }
+
+  // Friendly pre-checks; the DB unique indexes are the real guarantee.
+  const emailTaken = await db.User.findOne({ where: { email: cleanEmail } });
+  if (emailTaken) throw new ApiError(409, 'Email already registered');
+
+  const usernameTaken = await db.User.findOne({ where: { username: cleanUsername } });
+  if (usernameTaken) throw new ApiError(409, 'Username already taken');
+
+  const roleRow = await db.Role.findOne({ where: { name: role } });
+  if (!roleRow) throw new ApiError(500, 'Role not configured');
+
+  const tempPassword = generateTempPassword();
+  const password_hash = await hashPassword(tempPassword);
+
+  const created = await db.User.create({
+    email: cleanEmail,
+    password_hash,
+    display_name: cleanName,
+    username: cleanUsername,
+    role_id: roleRow.id,
+    must_change_password: true,     // forced change on first login
+    email_verified_at: new Date(),  // Super Admin vouches for the address
+  });
+
+  // Email the one-time credentials. Dev (no SMTP) returns { sent:false, loginUrl }
+  // and logs to console — matching your other mailers.
+  const emailDelivery = await sendTempPasswordEmail({
+    to: created.email,
+    tempPassword,
+    displayName: created.display_name,
+  });
+
+  return {
+    user: {
+      id: created.id,
+      email: created.email,
+      username: created.username,
+      displayName: created.display_name,
+      role: roleRow.name,
+      mustChangePassword: created.must_change_password,
+    },
+    tempPassword,   // returned ONCE so the Super Admin sees it on screen too
+    emailDelivery,
+  };
+};
+
+
+const setUserStatus = async ({ actor, targetUserId, isActive }) => {
+  if (Number(actor.id) === Number(targetUserId)) {
+    throw new ApiError(403, 'You cannot change your own status');
+  }
+
+  const target = await db.User.findByPk(targetUserId, {
+    include: [{ model: db.Role, as: 'role' }],
+  });
+  if (!target) throw new ApiError(404, 'Target user not found');
+
+  // Strict-higher rule — mirrors changeUserRole.
+  if (!(actor.level > target.role.level)) {
+    throw new ApiError(403, 'You cannot modify a user at or above your own level');
+  }
+
+  target.is_active = isActive;
+  await target.save();
+
+  return adminUserRow(target);
+};
 module.exports = {
   listUsers,
   findByUsername,
   changeUserRole,
+  createUser,
+  setUserStatus,
 };

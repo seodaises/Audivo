@@ -34,8 +34,40 @@ const changeUserRole = catchAsync(async (req, res) => {
   return success(res, 200, 'User role updated', result);
 });
 
+// POST /api/admin/users   body: { email, displayName, username }
+const createUser = catchAsync(async (req, res) => {
+  const { email, displayName, username } = req.body || {};
+  const result = await adminService.createUser({
+    actor: req.user,
+    email,
+    displayName,
+    username,
+  });
+  return success(res, 201, 'Admin account created', result);
+});
+
+// PATCH /api/admin/users/:id/status   body: { isActive: boolean }
+const setStatus = catchAsync(async (req, res) => {
+  const targetUserId = req.params.id;
+  const { isActive } = req.body || {};
+
+  // Must be a real boolean — guards against "true" (string) or a missing field.
+  if (typeof isActive !== 'boolean') {
+    throw new ApiError(400, 'isActive must be true or false');
+  }
+
+  const result = await adminService.setUserStatus({
+    actor: req.user,
+    targetUserId,
+    isActive,
+  });
+  return success(res, 200, isActive ? 'User activated' : 'User deactivated', result);
+});
+
 module.exports = {
   listUsers,
   searchByUsername,
   changeUserRole,
+  createUser,
+  setStatus,
 };

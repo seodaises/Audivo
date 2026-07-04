@@ -119,6 +119,11 @@ module.exports = (sequelize, DataTypes) => {
       },
       // ---------------------------------------------------------------------------
 
+      must_change_password: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       is_active: {
         type: DataTypes.BOOLEAN,
         allowNull: false,

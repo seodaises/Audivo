@@ -92,4 +92,49 @@ const sendResetPasswordEmail = async ({ to, token }) => {
 
   return { sent: true };
 };
-module.exports = { sendVerificationEmail, sendResetPasswordEmail };
+// Login link for a freshly created account — points at the frontend login page.
+const getLoginUrl = () => {
+  const frontendUrl =
+    process.env.FRONTEND_BASE_URL ||
+    process.env.API_BASE_URL ||
+    `http://localhost:${process.env.PORT || 5000}`;
+  return `${frontendUrl}/login`;
+};
+
+// Emails a newly created admin their one-time credentials. Same dev contract as
+// the other mailers: { sent: false, loginUrl } when SMTP isn't configured.
+const sendTempPasswordEmail = async ({ to, tempPassword, displayName }) => {
+  const loginUrl = getLoginUrl();
+  const transporter = getTransporter();
+  const name = displayName || 'there';
+
+  if (!transporter) {
+    console.log(`Temp password for ${to}: ${tempPassword} (login: ${loginUrl})`);
+    return { sent: false, loginUrl };
+  }
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to,
+    subject: 'Your Audivo admin account',
+    text:
+      `Hi ${name},\n\n` +
+      `An Audivo admin account has been created for you.\n\n` +
+      `Email: ${to}\n` +
+      `Temporary password: ${tempPassword}\n\n` +
+      `Sign in here: ${loginUrl}\n` +
+      `You'll be asked to set a new password the first time you log in.`,
+    html: `
+      <p>Hi ${name},</p>
+      <p>An Audivo admin account has been created for you.</p>
+      <p><strong>Email:</strong> ${to}<br/>
+         <strong>Temporary password:</strong> ${tempPassword}</p>
+      <p>Sign in here: <a href="${loginUrl}">${loginUrl}</a></p>
+      <p>You'll be asked to set a new password the first time you log in.</p>
+    `,
+  });
+
+  return { sent: true };
+};
+
+module.exports = { sendVerificationEmail, sendResetPasswordEmail, sendTempPasswordEmail };

@@ -31,8 +31,6 @@ const register = async ({ email, password, displayName, username, role = 'Listen
     );
   }
 
-  // Friendly pre-check. The DB unique index is the real guarantee (and catches
-  // the rare race where two signups pass this check at the same instant).
   const usernameTaken = await db.User.findOne({ where: { username: normalizedUsername } });
   if (usernameTaken) throw new ApiError(409, 'Username already taken');
 
@@ -157,6 +155,7 @@ const changePassword = async ({ userId, oldPassword, newPassword }) => {
   }
 
   user.password_hash = await hashPassword(newPassword);
+  user.must_change_password = false;
   await user.save();
 
   return { changed: true };
@@ -293,6 +292,7 @@ const publicUser = (user) => ({
   role: user.role ? user.role.name : null, // role NAME, for the frontend
   isActive: user.is_active,
   isVerified: user.email_verified_at !== null,
+  mustChangePassword: user.must_change_password,
 });
 
 module.exports = {

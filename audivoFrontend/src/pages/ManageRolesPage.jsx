@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Typography, Stack, Button, Table, TableHead, TableBody, TableRow,
   TableCell, TableContainer, Select, MenuItem, Alert, Skeleton, Snackbar,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Avatar, Chip, Divider,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Chip, Divider,
+  IconButton, InputAdornment,
 } from '@mui/material';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -110,7 +112,7 @@ export default function ManageRolesPage() {
                         No users to manage yet
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Promote someone to Admin to get started.
+                        Create an admin account to get started.
                       </Typography>
                       <Button
                         variant="contained" disableElevation startIcon={<PersonAddRoundedIcon />}
@@ -162,7 +164,7 @@ export default function ManageRolesPage() {
       <AddAdminDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onPromoted={(msg) => { setToast(msg); load(); }}
+        onCreated={(msg) => { setToast(msg); load(); }}
       />
 
       <Snackbar
@@ -174,99 +176,154 @@ export default function ManageRolesPage() {
 }
 
 
-function AddAdminDialog({ open, onClose, onPromoted }) {
+function AddAdminDialog({ open, onClose, onCreated }) {
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
-  const [found, setFound] = useState(null);
-  const [searching, setSearching] = useState(false);
-  const [promoting, setPromoting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState(null);
+  const [result, setResult] = useState(null); // set once the account is created
+  const [copied, setCopied] = useState(false);
 
-  const reset = () => { setUsername(''); setFound(null); setErr(null); };
-
+  const reset = () => {
+    setEmail(''); setDisplayName(''); setUsername('');
+    setErr(null); setResult(null); setCopied(false);
+  };
   const handleClose = () => { reset(); onClose(); };
 
-  const search = async () => {
-    const handle = username.trim().toLowerCase();
-    if (!handle) return;
-    setSearching(true); setErr(null); setFound(null);
+  // Client-side validation mirrors the backend rules, so obvious mistakes are
+  // caught before the request. The backend is still the real gatekeeper.
+  const cleanUsername = username.trim().toLowerCase();
+  const usernameValid = /^[a-z0-9_]{3,20}$/.test(cleanUsername);
+  const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+  const formValid = emailValid && displayName.trim() && usernameValid;
+
+  const create = async () => {
+    if (!formValid) return;
+    setSubmitting(true); setErr(null);
     try {
-      const { data } = await api(`/admin/users/search?username=${encodeURIComponent(handle)}`);
-      setFound(data);
+      const { data } = await api('/admin/users', {
+        method: 'POST',
+        body: {
+          email: email.trim(),
+          displayName: displayName.trim(),
+          username: cleanUsername,
+        },
+      });
+      setResult({
+        email: data.user.email,
+        tempPassword: data.tempPassword,      // shown once, here
+        emailDelivery: data.emailDelivery,    // { sent } or { sent:false, loginUrl }
+      });
+      onCreated(`Admin account created for @${data.user.username}`);
     } catch (e) {
-      setErr(e.message); // "No user found with that username"
+      setErr(e.message); // e.g. "Email already registered" / "Username already taken"
     } finally {
-      setSearching(false);
+      setSubmitting(false);
     }
   };
 
-  const promote = async () => {
-    if (!found) return;
-    setPromoting(true); setErr(null);
+  const copyPassword = async () => {
     try {
-      await api(`/admin/users/${found.id}/role`, { method: 'PATCH', body: { role: 'Admin' } });
-      onPromoted(`@${found.username} is now Admin`);
-      handleClose();
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setPromoting(false);
-    }
+      await navigator.clipboard.writeText(result.tempPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked - the field is selectable as a fallback */ }
   };
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ fontWeight: 700 }}>Add an admin</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Find a user by their exact username, then promote them to Admin.
-        </Typography>
+      {!result ? (
+        <>
+          <DialogTitle sx={{ fontWeight: 700 }}>Create an admin</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              A new account is created with a temporary password. The admin sets
+              their own password the first time they log in.
+            </Typography>
 
-        {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
+            {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
 
-        <Stack direction="row" spacing={1}>
-          <TextField
-            size="small" fullWidth label="Username" value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && search()}
-            InputProps={{ startAdornment: <Typography sx={{ mr: 0.5, color: 'text.secondary' }}>@</Typography> }}
-          />
-          <Button
-            variant="outlined" onClick={search} disabled={searching || !username.trim()}
-            startIcon={<SearchRoundedIcon />}
-          >
-            {searching ? '…' : 'Find'}
-          </Button>
-        </Stack>
-
-        {found && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Avatar sx={{ bgcolor: 'primary.main' }}>
-                {(found.displayName || found.username || '?').charAt(0).toUpperCase()}
-              </Avatar>
-              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {found.displayName || '—'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  @{found.username} · currently {found.role}
-                </Typography>
+            <Stack spacing={2} sx={{ mt: 0.5 }}>
+              <TextField
+                size="small" label="Email" type="email" value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={!!email && !emailValid}
+                helperText={!!email && !emailValid ? 'Enter a valid email' : ' '}
+              />
+              <TextField
+                size="small" label="Display name" value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              <TextField
+                size="small" label="Username" value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                error={!!username && !usernameValid}
+                helperText={
+                  !!username && !usernameValid
+                    ? '3-20 chars: lowercase letters, numbers, underscores'
+                    : ' '
+                }
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">@</InputAdornment>,
+                }}
+              />
+              <Box>
+                <Chip label="Role: Admin" size="small" color="primary" variant="outlined" />
               </Box>
-              {found.role === 'Admin' && <Chip label="Already admin" size="small" />}
             </Stack>
-          </>
-        )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} color="inherit">Cancel</Button>
-        <Button
-          variant="contained" disableElevation onClick={promote}
-          disabled={!found || promoting || found.role === 'Admin'}
-        >
-          {promoting ? 'Promoting…' : 'Promote to Admin'}
-        </Button>
-      </DialogActions>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleClose} color="inherit">Cancel</Button>
+            <Button
+              variant="contained" disableElevation onClick={create}
+              disabled={!formValid || submitting}
+            >
+              {submitting ? 'Creating...' : 'Create account'}
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+        <>
+          <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CheckCircleRoundedIcon color="primary" /> Account created
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Share these with the new admin. This password is shown only once.
+            </Typography>
+
+            <Stack spacing={2}>
+              <TextField
+                size="small" label="Email" value={result.email}
+                InputProps={{ readOnly: true }}
+              />
+              <TextField
+                size="small" label="Temporary password" value={result.tempPassword}
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton edge="end" onClick={copyPassword} size="small">
+                        <ContentCopyRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                helperText={copied ? 'Copied!' : ' '}
+              />
+              <Alert severity={result.emailDelivery?.sent ? 'success' : 'info'}>
+                {result.emailDelivery?.sent
+                  ? 'Credentials were emailed to the new admin.'
+                  : `Email isn't set up in dev - share these manually. Login: ${result.emailDelivery?.loginUrl || '/login'}`}
+              </Alert>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button variant="contained" disableElevation onClick={handleClose}>Done</Button>
+          </DialogActions>
+        </>
+      )}
     </Dialog>
   );
 }

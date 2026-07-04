@@ -1,13 +1,20 @@
-import { Box, Typography, Chip, Stack, Paper, Button, Alert } from '@mui/material';
+import { Box } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
-import { PERMISSIONS } from '../auth/permissions';
 import GreetingHeader from '../components/GreetingHeader';
-import MediaCard from '../components/MediaCard';
 import Shelf from '../components/Shelfs';
 import { quickPicks, recentlyPlayed, madeForYou } from '../data/placeholders';
+import AdminDashboard from './AdminDashboard';
+
+// Staff (Admin = 4, Super Admin = 5) get the admin overview; everyone else
+// (Listener / Artist / Moderator) keeps the music experience.
+const STAFF_LEVEL = 4;
 
 export default function Dashboard() {
-  const { user, can } = useAuth();
+  const { user } = useAuth();
+
+  if ((user?.level ?? 0) >= STAFF_LEVEL) {
+    return <AdminDashboard />;
+  }
 
   return (
     <Box>
