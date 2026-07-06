@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import {
-  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,
-} from '@mui/material';
+import {Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button,} from '@mui/material';
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 

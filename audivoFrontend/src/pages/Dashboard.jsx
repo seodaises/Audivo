@@ -5,8 +5,6 @@ import Shelf from '../components/Shelfs';
 import { quickPicks, recentlyPlayed, madeForYou } from '../data/placeholders';
 import AdminDashboard from './AdminDashboard';
 
-// Staff (Admin = 4, Super Admin = 5) get the admin overview; everyone else
-// (Listener / Artist / Moderator) keeps the music experience.
 const STAFF_LEVEL = 4;
 
 export default function Dashboard() {

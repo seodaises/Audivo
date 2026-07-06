@@ -7,8 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LOGIN } from '../constants/route_constant';
 
-// Confirmation popup shown before logging the user out. Logout is a
-// destructive-ish action (ends the session), so we interrupt and confirm first.
 export default function LogoutConfirmDialog({ open, onClose }) {
   const { logout } = useAuth();
   const navigate = useNavigate();

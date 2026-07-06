@@ -21,8 +21,6 @@ const register = async ({ email, password, displayName, username, role = 'Listen
     throw new ApiError(400, 'You can only register as a Listener or Artist');
   }
 
-  // Normalize first so "Khawla" and "khawla" can't both be taken, and so the
-  // stored handle always matches the lowercase format the rest of the app expects.
   const normalizedUsername = String(username || '').trim().toLowerCase();
   if (!USERNAME_RE.test(normalizedUsername)) {
     throw new ApiError(

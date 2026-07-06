@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Box, Paper, Typography, Stack, Table, TableHead, TableBody, TableRow, TableCell,
-  TableContainer, Chip, Avatar, Alert, Skeleton, TablePagination, Tooltip,
-  Menu, MenuItem, ListItemIcon, ListItemText,
-} from '@mui/material';
+import {Box, Paper, Typography, Stack, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Chip, Avatar, Alert, Skeleton, TablePagination, Tooltip, Menu, MenuItem, ListItemIcon, ListItemText,} from '@mui/material';
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { api } from '../api/client';
@@ -99,10 +95,6 @@ export default function ManageUsersPage() {
   return (
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Manage users</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Everyone with an Audivo account. Click a status chip to enable or disable an
-        account; change roles from the Manage Roles page.
-      </Typography>
 
       {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
 

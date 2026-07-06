@@ -26,8 +26,8 @@ const adminUserRow = (user) => ({
 
 // GET list — paginated. page/limit are clamped to sane bounds so a caller
 // can't ask for a million rows.
-const listUsers = async ({ page = 1, limit = 20 } = {}) => {
-  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+const listUsers = async ({ page = 1, limit = 50 } = {}) => {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
   const safePage = Math.max(parseInt(page, 10) || 1, 1);
   const offset = (safePage - 1) * safeLimit;
 
