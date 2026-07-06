@@ -7,7 +7,6 @@ import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import ChangePasswordPage from './pages/ChangePasswordPage';
 import Dashboard from './pages/Dashboard';
 import ManageUsersPage from './pages/ManageUsersPage';
 import ManageRolesPage from './pages/ManageRolesPage';
@@ -29,7 +28,6 @@ export default function App() {
             {/* Requires login */}
             <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
               <Route path={DASHBOARD} element={<Dashboard />} />
-              <Route path={CHANGE_PASSWORD} element={<ChangePasswordPage />} />
               <Route path={BROWSE} element={<Placeholder title="Browse" />} />
               <Route path={LIBRARY} element={<Placeholder title="Library" />} />
               <Route path={UPLOAD} element={<Placeholder title="Upload Songs" />} />

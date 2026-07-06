@@ -13,8 +13,6 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 
-// A single metric tile. `value` may be a node (so we can drop a Skeleton in
-// while the numbers load) or a plain number/string once data arrives.
 function StatCard({ icon, label, value }) {
   return (
     <Paper
@@ -68,18 +66,25 @@ function ActionCard({ icon, title, description, onClick }) {
   );
 }
 
-// One row of the per-role breakdown: the role name, an active/inactive count
-// summary, and a bar whose amber fill is the share of ACTIVE users in that
-// role. The remaining track reads as inactive.
 function RoleBreakdownRow({ role, active, inactive, total }) {
   // Guard against divide-by-zero for a role with no users.
   const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
 
   return (
     <Box sx={{ py: 1.25 }}>
-      <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mb: 0.75 }}>
+      <Stack
+        direction="row"
+        alignItems="baseline"
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 0.75 }}
+      >
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{role}</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
           {active} active&nbsp;·&nbsp;{inactive} inactive&nbsp;·&nbsp;{total} total
         </Typography>
       </Stack>
@@ -194,7 +199,6 @@ export default function AdminDashboard() {
         )}
       </Paper>
 
-      {/* Quick actions — gated by the same permission keys your Sidebar uses */}
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Quick actions</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         {can('manage_users') && (
@@ -215,8 +219,6 @@ export default function AdminDashboard() {
         )}
       </Box>
 
-      {/* Super Admin only — gated by manage_roles, which only Super Admin holds,
-          so Admins never see this section. This is the Admin/Super-Admin split. */}
       {can('manage_roles') && (
         <Box sx={{ mt: 4 }}>
           <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';     
 import { api, setToken, clearToken, getToken } from '../api/client';
 import { ROLES } from '../auth/permissions';
 
@@ -8,6 +8,8 @@ export const useAuth = () => useContext(AuthContext);
 const shapeUser = (u) => {
   const key = (u.role || '').toLowerCase().replace(/\s+/g, '_');
   const role = ROLES[key] || { key, label: u.role || 'Unknown', level: 0, permissions: [] };
+  const permissions = Array.isArray(u.permissions) ? u.permissions : role.permissions;
+
   return {
     id: u.id,
     name: u.displayName,
@@ -23,7 +25,7 @@ const shapeUser = (u) => {
     role: role.label,
     roleKey: role.key,
     level: role.level,
-    permissions: role.permissions,
+    permissions,
     isVerified: u.isVerified,
     mustChangePassword: u.mustChangePassword ?? false,
   };
@@ -42,7 +44,6 @@ export function AuthProvider({ children }) {
     localStorage.setItem('audivo-user', JSON.stringify(shaped));
   };
 
-  // Shared: store token + shaped user.
   const applySession = (data) => {
     setToken(data.token);
     persist(shapeUser(data.user));
@@ -53,6 +54,7 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api('/auth/login', { method: 'POST', body: { email, password } });
       applySession(data);
+      await refreshUser();
       return true;
     } catch (err) { setError(err.message); return false; }
     finally { setLoading(false); }
@@ -82,7 +84,6 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  // Pull the authoritative profile from the server (GET /api/auth/me).
   const refreshUser = async () => {
     if (!getToken()) return null;
     try {
@@ -104,6 +105,9 @@ export function AuthProvider({ children }) {
   };
 
   const can = (permission) => !!user?.permissions?.includes(permission);
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   return (
     <AuthContext.Provider value={{

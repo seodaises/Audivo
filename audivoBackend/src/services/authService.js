@@ -56,7 +56,13 @@ const register = async ({ email, password, displayName, username, role = 'Listen
 const login = async ({ email, password, ipAddress, userAgent }) => {
   const user = await db.User.findOne({
     where: { email },
-    include: [{ model: db.Role, as: 'role' }],
+    include: [
+      {
+        model: db.Role,
+        as: 'role',
+        include: [{ model: db.Permission, as: 'permissions', attributes: ['key'] }],
+      },
+    ],
   });
 
   if (!user) throw new ApiError(401, 'Invalid credentials');
@@ -72,14 +78,19 @@ const login = async ({ email, password, ipAddress, userAgent }) => {
   user.last_login_at = new Date();
   await user.save();
 
+  // login_history is the source of truth for "when/where did I sign in"
   await db.LoginHistory.create({
     user_id: user.id,
     ip_address: ipAddress || null,
     user_agent: userAgent || null,
   });
 
+  const permissions = user.role && user.role.permissions
+    ? user.role.permissions.map((p) => p.key)
+    : [];
+
   const token = generateToken({ sub: user.id, role: user.role.name });
-  return { token, user: publicUser(user) };
+  return { token, user: publicUser(user, permissions) };
 };
 
 const verifyEmail = async (token) => {
@@ -145,7 +156,6 @@ const changePassword = async ({ userId, oldPassword, newPassword }) => {
     throw new ApiError(401, 'Current password is incorrect');
   }
 
-  // Block a no-op change - new must differ from old.
   const same = await comparePassword(newPassword, user.password_hash);
   if (same) {
     throw new ApiError(400, 'New password must be different from the current one');
