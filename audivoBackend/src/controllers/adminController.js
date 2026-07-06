@@ -64,10 +64,50 @@ const setStatus = catchAsync(async (req, res) => {
   return success(res, 200, isActive ? 'User activated' : 'User deactivated', result);
 });
 
+// GET /api/admin/permissions  — the full permission catalogue (editor columns)
+const listPermissions = catchAsync(async (req, res) => {
+  const result = await adminService.getAllPermissions();
+  return success(res, 200, 'Permissions retrieved', result);
+});
+
+// GET /api/admin/roles  — every role with the permissions it grants (editor grid)
+const listRolesWithPermissions = catchAsync(async (req, res) => {
+  const result = await adminService.getRolesWithPermissions();
+  return success(res, 200, 'Roles retrieved', result);
+});
+
+// POST /api/admin/roles/:id/permissions/:permKey  — grant one permission
+const grantPermission = catchAsync(async (req, res) => {
+  const roleId = req.params.id;
+  const permissionKey = req.params.permKey;
+  const result = await adminService.grantPermission({ roleId, permissionKey });
+  return success(res, 200, 'Permission granted', result);
+});
+
+// DELETE /api/admin/roles/:id/permissions/:permKey  — revoke one permission
+const revokePermission = catchAsync(async (req, res) => {
+  const roleId = req.params.id;
+  const permissionKey = req.params.permKey;
+  const result = await adminService.revokePermission({ roleId, permissionKey });
+  return success(res, 200, 'Permission revoked', result);
+});
+
+// GET /api/admin/metrics  — user counts per role (Super Admin bucket hidden
+// from Admins). req.user.level is set by requireMinLevel.
+const getMetrics = catchAsync(async (req, res) => {
+  const result = await adminService.getMetrics({ actorLevel: req.user.level });
+  return success(res, 200, 'Metrics retrieved', result);
+});
+
 module.exports = {
   listUsers,
   searchByUsername,
   changeUserRole,
   createUser,
   setStatus,
+  listPermissions,
+  listRolesWithPermissions,
+  grantPermission,
+  revokePermission,
+  getMetrics,
 };

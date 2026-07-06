@@ -8,8 +8,10 @@ const MAX_ASSIGNABLE_LEVEL = 4; // Admin
 const CREATABLE_ROLES = ['Admin']; 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
-// Shared projection for a user row in admin views. Now carries the fields the
-// Manage Users table shows: email, phone, and the active flag.
+const LOCKED_ROLE = 'Super Admin';
+
+const MAX_EDITABLE_ROLE_LEVEL = 4; // Admin and below
+
 const adminUserRow = (user) => ({
   id: user.id,
   username: user.username,
@@ -150,8 +152,6 @@ const createUser = async ({ actor, email, displayName, username, role = 'Admin' 
     email_verified_at: new Date(),  // Super Admin vouches for the address
   });
 
-  // Email the one-time credentials. Dev (no SMTP) returns { sent:false, loginUrl }
-  // and logs to console — matching your other mailers.
   const emailDelivery = await sendTempPasswordEmail({
     to: created.email,
     tempPassword,
@@ -193,10 +193,154 @@ const setUserStatus = async ({ actor, targetUserId, isActive }) => {
 
   return adminUserRow(target);
 };
+
+const getAllPermissions = async () => {
+  const perms = await db.Permission.findAll({ order: [['id', 'ASC']] });
+  return perms.map((p) => ({ id: p.id, key: p.key, description: p.description }));
+};
+
+// Every role with the permission keys it currently grants. This is the data
+// the editor grid renders (rows = roles, cells = which permissions are on).
+// `editable` tells the frontend which rows are safe to toggle; the backend
+// still enforces it independently on grant/revoke.
+const getRolesWithPermissions = async () => {
+  const roles = await db.Role.findAll({
+    include: [{ model: db.Permission, as: 'permissions', attributes: ['id', 'key'] }],
+    order: [['level', 'DESC']],
+  });
+
+  return roles.map((role) => ({
+    id: role.id,
+    name: role.name,
+    level: role.level,
+    editable: role.name !== LOCKED_ROLE && role.level <= MAX_EDITABLE_ROLE_LEVEL,
+    permissions: (role.permissions || []).map((p) => p.key),
+  }));
+};
+
+// Shared guard: resolve the target role + permission and enforce that the role
+// is an editable target. Returns { role, permission } or throws.
+const resolveEditableTarget = async ({ roleId, permissionKey }) => {
+  const role = await db.Role.findByPk(roleId);
+  if (!role) throw new ApiError(404, 'Role not found');
+
+  // The Super Admin role is locked — its grants can never be changed here.
+  if (role.name === LOCKED_ROLE) {
+    throw new ApiError(403, `${LOCKED_ROLE} permissions cannot be modified`);
+  }
+  // And only Admin-and-below roles are editable targets.
+  if (role.level > MAX_EDITABLE_ROLE_LEVEL) {
+    throw new ApiError(403, 'That role cannot be edited through this dashboard');
+  }
+
+  const permission = await db.Permission.findOne({ where: { key: permissionKey } });
+  if (!permission) throw new ApiError(404, 'Unknown permission');
+
+  return { role, permission };
+};
+
+// Grant a single permission to a role. Idempotent-friendly: if the pairing
+// already exists we surface a clear 400 rather than tripping the DB's
+// uq_role_permission unique constraint.
+const grantPermission = async ({ roleId, permissionKey }) => {
+  const { role, permission } = await resolveEditableTarget({ roleId, permissionKey });
+
+  const existing = await db.RolePermission.findOne({
+    where: { role_id: role.id, permission_id: permission.id },
+  });
+  if (existing) throw new ApiError(400, 'Role already has that permission');
+
+  await db.RolePermission.create({ role_id: role.id, permission_id: permission.id });
+
+  return rolePermissionSnapshot(role.id);
+};
+
+// Revoke a single permission from a role.
+const revokePermission = async ({ roleId, permissionKey }) => {
+  const { role, permission } = await resolveEditableTarget({ roleId, permissionKey });
+
+  const deleted = await db.RolePermission.destroy({
+    where: { role_id: role.id, permission_id: permission.id },
+  });
+  if (!deleted) throw new ApiError(400, 'Role does not have that permission');
+
+  return rolePermissionSnapshot(role.id);
+};
+
+// Re-read a single role's permissions after a change, so the response reflects
+// the new state (handy for the frontend to update its grid without a refetch).
+const rolePermissionSnapshot = async (roleId) => {
+  const role = await db.Role.findByPk(roleId, {
+    include: [{ model: db.Permission, as: 'permissions', attributes: ['key'] }],
+  });
+  return {
+    id: role.id,
+    name: role.name,
+    level: role.level,
+    permissions: (role.permissions || []).map((p) => p.key),
+  };
+};
+
+const getMetrics = async ({ actorLevel }) => {
+  const SUPER_ADMIN_LEVEL = 5;
+  const canSeeSuperAdmin = Number(actorLevel) >= SUPER_ADMIN_LEVEL;
+
+  // One query: every role with its users' is_active flags. We partition into
+  // active/inactive in JS rather than firing two queries per role.
+  const roles = await db.Role.findAll({
+    attributes: ['id', 'name', 'level'],
+    include: [{ model: db.User, as: 'users', attributes: ['id', 'is_active'] }],
+    order: [['level', 'DESC']],
+  });
+
+  // Overall tallies count EVERY user, regardless of the Super Admin display
+  // rule — hiding a role from an Admin's breakdown shouldn't silently change
+  // the top-line totals they see for the platform.
+  let totalUsers = 0;
+  let activeUsers = 0;
+  let inactiveUsers = 0;
+
+  const byRole = [];
+
+  for (const role of roles) {
+    const users = role.users || [];
+    const active = users.filter((u) => u.is_active).length;
+    const inactive = users.length - active;
+
+    totalUsers += users.length;
+    activeUsers += active;
+    inactiveUsers += inactive;
+
+    // Hide the Super Admin bucket from anyone below Super Admin.
+    if (role.name === 'Super Admin' && !canSeeSuperAdmin) continue;
+
+    byRole.push({
+      role: role.name,
+      level: role.level,
+      active,
+      inactive,
+      total: users.length,
+    });
+  }
+
+  return {
+    totalUsers,
+    activeUsers,
+    inactiveUsers,
+    canSeeSuperAdmin,
+    byRole,
+  };
+};
+
 module.exports = {
   listUsers,
   findByUsername,
   changeUserRole,
   createUser,
   setUserStatus,
+  getAllPermissions,
+  getRolesWithPermissions,
+  grantPermission,
+  revokePermission,
+  getMetrics,
 };

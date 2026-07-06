@@ -72,7 +72,6 @@ const login = async ({ email, password, ipAddress, userAgent }) => {
   user.last_login_at = new Date();
   await user.save();
 
-  // login_history is the source of truth for "when/where did I sign in"
   await db.LoginHistory.create({
     user_id: user.id,
     ip_address: ipAddress || null,
@@ -209,10 +208,21 @@ const getLoginHistory = async ({ userId, limit = 20 }) => {
 
 const getMe = async ({ userId }) => {
   const user = await db.User.findByPk(userId, {
-    include: [{ model: db.Role, as: 'role' }],
+    include: [
+      {
+        model: db.Role,
+        as: 'role',
+        include: [{ model: db.Permission, as: 'permissions', attributes: ['key'] }],
+      },
+    ],
   });
   if (!user) throw new ApiError(404, 'User not found');
-  return publicUser(user);
+
+  const permissions = user.role && user.role.permissions
+    ? user.role.permissions.map((p) => p.key)
+    : [];
+
+  return publicUser(user, permissions);
 };
 
 const updateMe = async ({ userId, patch }) => {
@@ -267,8 +277,7 @@ const updateMe = async ({ userId, patch }) => {
   return publicUser(user);
 };
 
-// Strips sensitive fields - password_hash never leaves the service.
-const publicUser = (user) => ({
+const publicUser = (user, permissions = []) => ({
   id: user.id,
   email: user.email,
   username: user.username,
@@ -288,6 +297,7 @@ const publicUser = (user) => ({
   },
   roleId: user.role_id,
   role: user.role ? user.role.name : null, // role NAME, for the frontend
+  permissions, // array of permission keys the role grants (server-trusted)
   isActive: user.is_active,
   isVerified: user.email_verified_at !== null,
   mustChangePassword: user.must_change_password,

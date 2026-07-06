@@ -1,19 +1,20 @@
-import { Box, Typography, Paper, Stack, Chip } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Typography, Paper, Stack, Chip, LinearProgress, Skeleton, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 import { USERS, ROLES, ANALYTICS } from '../constants/route_constant';
 
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
+import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 
-// A single metric tile. Value is a placeholder ("—") until the metrics
-// endpoints exist — the layout is ready, so wiring real numbers later is trivial.
+// A single metric tile. `value` may be a node (so we can drop a Skeleton in
+// while the numbers load) or a plain number/string once data arrives.
 function StatCard({ icon, label, value }) {
   return (
     <Paper
@@ -67,10 +68,64 @@ function ActionCard({ icon, title, description, onClick }) {
   );
 }
 
+// One row of the per-role breakdown: the role name, an active/inactive count
+// summary, and a bar whose amber fill is the share of ACTIVE users in that
+// role. The remaining track reads as inactive.
+function RoleBreakdownRow({ role, active, inactive, total }) {
+  // Guard against divide-by-zero for a role with no users.
+  const activePct = total > 0 ? Math.round((active / total) * 100) : 0;
+
+  return (
+    <Box sx={{ py: 1.25 }}>
+      <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mb: 0.75 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{role}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {active} active&nbsp;·&nbsp;{inactive} inactive&nbsp;·&nbsp;{total} total
+        </Typography>
+      </Stack>
+      <LinearProgress
+        variant="determinate"
+        value={activePct}
+        aria-label={`${role}: ${activePct}% active`}
+        sx={{
+          height: 10, borderRadius: 5,
+          // The track (unfilled portion) represents inactive users.
+          bgcolor: 'action.hover',
+          '& .MuiLinearProgress-bar': { borderRadius: 5, bgcolor: 'primary.main' },
+        }}
+      />
+    </Box>
+  );
+}
+
 export default function AdminDashboard() {
   const { user, can } = useAuth();
   const navigate = useNavigate();
   const name = user?.name || user?.email?.split('@')[0] || 'there';
+
+  const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true); setErr(null);
+      try {
+        const { data } = await api('/admin/metrics');
+        if (alive) setMetrics(data);
+      } catch (e) {
+        if (alive) setErr(e.message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // While loading, tiles show a small skeleton instead of a bare dash.
+  const tileValue = (n) =>
+    loading ? <Skeleton width={48} height={32} /> : (n ?? '—');
 
   return (
     <Box>
@@ -85,16 +140,59 @@ export default function AdminDashboard() {
         Welcome back, {name}. Here's the state of Audivo at a glance.
       </Typography>
 
-      {/* Metrics — placeholders until the metrics endpoints land */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 1 }}>
-        <StatCard icon={<PeopleRoundedIcon />} label="Total users" value="—" />
-        <StatCard icon={<CheckCircleRoundedIcon />} label="Active users" value="—" />
-        <StatCard icon={<LibraryMusicRoundedIcon />} label="Songs" value="—" />
-        <StatCard icon={<FlagRoundedIcon />} label="Open reports" value="—" />
+      {err && <Alert severity="error" sx={{ mb: 3 }}>{err}</Alert>}
+
+      {/* Top-line metrics — Total / Active / Inactive */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
+        <StatCard
+          icon={<PeopleRoundedIcon />}
+          label="Total users"
+          value={tileValue(metrics?.totalUsers)}
+        />
+        <StatCard
+          icon={<CheckCircleRoundedIcon />}
+          label="Active users"
+          value={tileValue(metrics?.activeUsers)}
+        />
+        <StatCard
+          icon={<BlockRoundedIcon />}
+          label="Inactive users"
+          value={tileValue(metrics?.inactiveUsers)}
+        />
       </Box>
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 4 }}>
-        Live metrics coming soon.
-      </Typography>
+
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>Users by role</Typography>
+      <Paper
+        elevation={0}
+        sx={{ p: 2.5, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 4 }}
+      >
+        {loading ? (
+          <Stack spacing={2}>
+            {[0, 1, 2, 3].map((i) => (
+              <Box key={i}>
+                <Skeleton width="30%" height={20} />
+                <Skeleton variant="rounded" height={10} sx={{ mt: 1, borderRadius: 5 }} />
+              </Box>
+            ))}
+          </Stack>
+        ) : metrics && metrics.byRole.length > 0 ? (
+          <Stack divider={<Box sx={{ borderBottom: '1px dashed', borderColor: 'divider' }} />}>
+            {metrics.byRole.map((r) => (
+              <RoleBreakdownRow
+                key={r.role}
+                role={r.role}
+                active={r.active}
+                inactive={r.inactive}
+                total={r.total}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No user data to display yet.
+          </Typography>
+        )}
+      </Paper>
 
       {/* Quick actions — gated by the same permission keys your Sidebar uses */}
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Quick actions</Typography>
