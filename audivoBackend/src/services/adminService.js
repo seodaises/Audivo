@@ -1,5 +1,6 @@
 'use strict';
 const db = require('../models');
+const { Op } = db.Sequelize;
 const ApiError = require('../utils/ApiError');
 const { hashPassword, generateTempPassword } = require('../utils/password');
 const { sendTempPasswordEmail } = require('./emailService');
@@ -11,6 +12,9 @@ const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 const LOCKED_ROLE = 'Super Admin';
 
 const MAX_EDITABLE_ROLE_LEVEL = 4; // Admin and below
+
+const ADMIN_LEVEL = 4;      // Admin
+const MODERATOR_LEVEL = 3;  // highest level shown on the Manage Users page
 
 const adminUserRow = (user) => ({
   id: user.id,
@@ -26,18 +30,18 @@ const adminUserRow = (user) => ({
   addressStreet: user.address_street ?? null,
 });
 
-// GET list — paginated. page/limit are clamped to sane bounds so a caller
-// can't ask for a million rows.
-const listUsers = async ({ page = 1, limit = 50 } = {}) => {
+const paginatedUserList = async ({ page, limit, roleWhere }) => {
   const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
   const safePage = Math.max(parseInt(page, 10) || 1, 1);
   const offset = (safePage - 1) * safeLimit;
 
   const { count, rows } = await db.User.findAndCountAll({
-    include: [{ model: db.Role, as: 'role' }],
+    include: [{ model: db.Role, as: 'role', where: roleWhere, required: true }],
     order: [['id', 'ASC']],
     limit: safeLimit,
     offset,
+    // findAndCountAll with a required include + limit can miscount without this.
+    distinct: true,
   });
 
   return {
@@ -51,8 +55,21 @@ const listUsers = async ({ page = 1, limit = 50 } = {}) => {
   };
 };
 
-// Exact-username lookup for the +Add Admin search bar. Username is normalized
-// to lowercase at registration, so we match on the lowercased input.
+const listUsers = async ({ page = 1, limit = 50, viewerLevel } = {}) => {
+  const level = Number(viewerLevel) || 0;
+
+  const ceiling = Math.min(MODERATOR_LEVEL, level - 1);
+
+  const roleWhere = { level: { [Op.lte]: ceiling } };
+
+  return paginatedUserList({ page, limit, roleWhere });
+};
+
+const listAdmins = async ({ page = 1, limit = 50 } = {}) => {
+  const roleWhere = { level: ADMIN_LEVEL };
+  return paginatedUserList({ page, limit, roleWhere });
+};
+
 const findByUsername = async ({ username }) => {
   const handle = String(username || '').trim().toLowerCase();
   if (!handle) throw new ApiError(400, 'username is required');
@@ -66,8 +83,6 @@ const findByUsername = async ({ username }) => {
   return adminUserRow(user);
 };
 
-// The core: change a user's role. Enforces both guardrails + the strict-higher
-// hierarchy rule. `actor` is req.user (must carry id + level from the guard).
 const changeUserRole = async ({ actor, targetUserId, newRoleName }) => {
   // Guardrail 1: no changing your own role.
   if (Number(actor.id) === Number(targetUserId)) {
@@ -87,8 +102,6 @@ const changeUserRole = async ({ actor, targetUserId, newRoleName }) => {
   });
   if (!target) throw new ApiError(404, 'Target user not found');
 
-  // Strict-higher rule: actor must outrank BOTH the target's current role
-  // AND the role being granted.
   if (!(actor.level > target.role.level)) {
     throw new ApiError(403, 'You cannot modify a user at or above your own level');
   }
@@ -199,10 +212,6 @@ const getAllPermissions = async () => {
   return perms.map((p) => ({ id: p.id, key: p.key, description: p.description }));
 };
 
-// Every role with the permission keys it currently grants. This is the data
-// the editor grid renders (rows = roles, cells = which permissions are on).
-// `editable` tells the frontend which rows are safe to toggle; the backend
-// still enforces it independently on grant/revoke.
 const getRolesWithPermissions = async () => {
   const roles = await db.Role.findAll({
     include: [{ model: db.Permission, as: 'permissions', attributes: ['id', 'key'] }],
@@ -218,17 +227,13 @@ const getRolesWithPermissions = async () => {
   }));
 };
 
-// Shared guard: resolve the target role + permission and enforce that the role
-// is an editable target. Returns { role, permission } or throws.
 const resolveEditableTarget = async ({ roleId, permissionKey }) => {
   const role = await db.Role.findByPk(roleId);
   if (!role) throw new ApiError(404, 'Role not found');
 
-  // The Super Admin role is locked — its grants can never be changed here.
   if (role.name === LOCKED_ROLE) {
     throw new ApiError(403, `${LOCKED_ROLE} permissions cannot be modified`);
   }
-  // And only Admin-and-below roles are editable targets.
   if (role.level > MAX_EDITABLE_ROLE_LEVEL) {
     throw new ApiError(403, 'That role cannot be edited through this dashboard');
   }
@@ -239,9 +244,6 @@ const resolveEditableTarget = async ({ roleId, permissionKey }) => {
   return { role, permission };
 };
 
-// Grant a single permission to a role. Idempotent-friendly: if the pairing
-// already exists we surface a clear 400 rather than tripping the DB's
-// uq_role_permission unique constraint.
 const grantPermission = async ({ roleId, permissionKey }) => {
   const { role, permission } = await resolveEditableTarget({ roleId, permissionKey });
 
@@ -255,7 +257,6 @@ const grantPermission = async ({ roleId, permissionKey }) => {
   return rolePermissionSnapshot(role.id);
 };
 
-// Revoke a single permission from a role.
 const revokePermission = async ({ roleId, permissionKey }) => {
   const { role, permission } = await resolveEditableTarget({ roleId, permissionKey });
 
@@ -267,8 +268,6 @@ const revokePermission = async ({ roleId, permissionKey }) => {
   return rolePermissionSnapshot(role.id);
 };
 
-// Re-read a single role's permissions after a change, so the response reflects
-// the new state (handy for the frontend to update its grid without a refetch).
 const rolePermissionSnapshot = async (roleId) => {
   const role = await db.Role.findByPk(roleId, {
     include: [{ model: db.Permission, as: 'permissions', attributes: ['key'] }],
@@ -285,17 +284,12 @@ const getMetrics = async ({ actorLevel }) => {
   const SUPER_ADMIN_LEVEL = 5;
   const canSeeSuperAdmin = Number(actorLevel) >= SUPER_ADMIN_LEVEL;
 
-  // One query: every role with its users' is_active flags. We partition into
-  // active/inactive in JS rather than firing two queries per role.
   const roles = await db.Role.findAll({
     attributes: ['id', 'name', 'level'],
     include: [{ model: db.User, as: 'users', attributes: ['id', 'is_active'] }],
     order: [['level', 'DESC']],
   });
 
-  // Overall tallies count EVERY user, regardless of the Super Admin display
-  // rule — hiding a role from an Admin's breakdown shouldn't silently change
-  // the top-line totals they see for the platform.
   let totalUsers = 0;
   let activeUsers = 0;
   let inactiveUsers = 0;
@@ -311,7 +305,6 @@ const getMetrics = async ({ actorLevel }) => {
     activeUsers += active;
     inactiveUsers += inactive;
 
-    // Hide the Super Admin bucket from anyone below Super Admin.
     if (role.name === 'Super Admin' && !canSeeSuperAdmin) continue;
 
     byRole.push({
@@ -334,6 +327,7 @@ const getMetrics = async ({ actorLevel }) => {
 
 module.exports = {
   listUsers,
+  listAdmins,
   findByUsername,
   changeUserRole,
   createUser,

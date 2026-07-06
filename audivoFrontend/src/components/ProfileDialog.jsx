@@ -11,10 +11,8 @@ import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import { useAuth } from '../context/AuthContext';
 
-// Fixed gender options — kept small and inclusive; stored as a plain string.
 const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
 
-// Build the initial editable form from the current user object.
 const formFromUser = (u) => ({
   displayName: u?.name ?? '',
   firstName: u?.firstName ?? '',
@@ -114,16 +112,16 @@ export default function ProfileDialog({ open, onClose }) {
           <Stack spacing={2}>
             <TextField label="Display name" fullWidth value={form.displayName} onChange={set('displayName')} required />
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="First name" fullWidth value={form.firstName} onChange={set('firstName')} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Last name" fullWidth value={form.lastName} onChange={set('lastName')} />
               </Grid>
             </Grid>
 
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="gender-label">Gender</InputLabel>
                   <Select
@@ -139,14 +137,14 @@ export default function ProfileDialog({ open, onClose }) {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Birthday"
                   type="date"
                   fullWidth
                   value={form.birthday}
                   onChange={set('birthday')}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
             </Grid>
@@ -159,10 +157,10 @@ export default function ProfileDialog({ open, onClose }) {
             <Typography variant="overline" color="text.secondary">Address</Typography>
             <TextField label="Street" fullWidth value={form.addressStreet} onChange={set('addressStreet')} />
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="City" fullWidth value={form.addressCity} onChange={set('addressCity')} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Postal code" fullWidth value={form.addressPostalCode} onChange={set('addressPostalCode')} />
               </Grid>
             </Grid>
@@ -198,7 +196,6 @@ export default function ProfileDialog({ open, onClose }) {
   );
 }
 
-// Small read-only label/value row; shows an em dash when empty.
 function Field({ label, value }) {
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>

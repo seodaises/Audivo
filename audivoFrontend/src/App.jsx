@@ -10,7 +10,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import Dashboard from './pages/Dashboard';
 import ManageUsersPage from './pages/ManageUsersPage';
 import ManageRolesPage from './pages/ManageRolesPage';
-import {LOGIN, REGISTER, FORGOT_PASSWORD, RESET_PASSWORD, DASHBOARD, CHANGE_PASSWORD, BROWSE, LIBRARY, UPLOAD, SONGS, FEATURE, USERS, ANALYTICS, MODERATE, ROLES,} from './constants/route_constant';
+import ManageAdminsPage from './pages/ManageAdminsPage';
+import {LOGIN, REGISTER, FORGOT_PASSWORD, RESET_PASSWORD, DASHBOARD, CHANGE_PASSWORD, BROWSE, LIBRARY, UPLOAD, SONGS, FEATURE, USERS, ANALYTICS, MODERATE, ROLES, ADMINS,} from './constants/route_constant';
 
 const Placeholder = ({ title }) => <Typography variant="h4" sx={{ fontWeight: 800 }}>{title}</Typography>;
 
@@ -37,6 +38,7 @@ export default function App() {
               <Route path={ANALYTICS} element={<Placeholder title="Analytics" />} />
               <Route path={MODERATE} element={<Placeholder title="Moderate Comments" />} />
               <Route path={ROLES} element={<ManageRolesPage />} />
+              <Route path={ADMINS} element={<ManageAdminsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to={DASHBOARD} replace />} />

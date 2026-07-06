@@ -76,11 +76,10 @@ export default function ProfileMenu() {
         <Divider />
         <MenuItem onClick={openLogout}>
           <ListItemIcon><LogoutRoundedIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText primaryTypographyProps={{ color: 'error' }}>Log out</ListItemText>
+          <ListItemText slotProps={{ primary: { color: 'error' } }}>Log out</ListItemText>
         </MenuItem>
       </Menu>
 
-      {/* The three destinations, each a self-contained popup. */}
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
       <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <LogoutConfirmDialog open={logoutOpen} onClose={() => setLogoutOpen(false)} />

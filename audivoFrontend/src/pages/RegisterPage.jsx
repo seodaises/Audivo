@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Container, Card, CardContent, Typography, ToggleButtonGroup, ToggleButton, TextField, Button, Checkbox, FormControlLabel, Link, Divider, Avatar, Stack, Alert,} from '@mui/material';
+import { Container, Card, CardContent, Typography, ToggleButtonGroup, ToggleButton, TextField, Button, Checkbox, FormControlLabel, Link, Divider, Avatar, Stack, Alert, InputAdornment,} from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import HeadphonesRoundedIcon from '@mui/icons-material/HeadphonesRounded';
@@ -12,6 +12,7 @@ export default function RegisterPage() {
 
   const [role, setRole] = useState('Listener');      // 'Listener' | 'Artist'
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -23,8 +24,12 @@ export default function RegisterPage() {
     if (next) setRole(next);   
   };
 
+  const cleanUsername = username.trim().toLowerCase();
+
   const validate = () => {
     if (!displayName.trim()) return 'Please enter your display name.';
+    if (!/^[a-z0-9_]{3,20}$/.test(cleanUsername))
+      return 'Username must be 3-20 characters: lowercase letters, numbers, or underscores.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email.';
     if (password.length < 8) return 'Password must be at least 8 characters.';
     if (password !== confirm) return 'Passwords do not match.';
@@ -37,7 +42,7 @@ export default function RegisterPage() {
     if (msg) { setFormError(msg); return; }
     setFormError('');
 
-   const ok = await register(displayName, email, password, role); 
+   const ok = await register(displayName, email, password, cleanUsername, role); 
     if (ok) setDone(true);
   };
 
@@ -102,6 +107,21 @@ export default function RegisterPage() {
               label={role === 'Artist' ? 'Stage / Artist name' : 'Display name'}
               fullWidth value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <TextField
+              label="Username" fullWidth value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              error={!!username && !/^[a-z0-9_]{3,20}$/.test(cleanUsername)}
+              helperText={
+                !!username && !/^[a-z0-9_]{3,20}$/.test(cleanUsername)
+                  ? '3-20 chars: lowercase letters, numbers, underscores'
+                  : 'This is your unique @handle.'
+              }
+              slotProps={{
+                input: {
+                  startAdornment: <InputAdornment position="start">@</InputAdornment>,
+                },
+              }}
             />
             <TextField
               label="Email" type="email" fullWidth value={email}

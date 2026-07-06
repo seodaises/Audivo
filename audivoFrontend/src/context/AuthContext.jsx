@@ -60,10 +60,10 @@ export function AuthProvider({ children }) {
     finally { setLoading(false); }
   };
 
-   const register = async (displayName, email, password, role) => {
+   const register = async (displayName, email, password, username, role) => {
   setLoading(true); setError(null);
   try {
-    await api('/auth/register', { method: 'POST', body: { displayName, email, password, role } });
+    await api('/auth/register', { method: 'POST', body: { displayName, email, password, username, role } });
     return true;
   } catch (err) { setError(err.message); return false; }
   finally { setLoading(false); }

@@ -9,6 +9,7 @@ import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
+import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS } from '../../auth/permissions';
@@ -24,6 +25,7 @@ import {
   ANALYTICS,
   MODERATE,
   ROLES,
+  ADMINS,
 } from '../../constants/route_constant';
 
 const DRAWER_WIDTH = 240;
@@ -44,12 +46,19 @@ const gatedItems = [
   { label: 'Manage Roles',  icon: <AdminPanelSettingsRoundedIcon />, path: ROLES,     permission: PERMISSIONS.MANAGE_ROLES },
 ];
 
+const superAdminItems = [
+  { label: 'Manage Admins', icon: <ShieldRoundedIcon />, path: ADMINS },
+];
+
 export default function Sidebar() {
   const { user, can } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const visibleGated = gatedItems.filter((item) => can(item.permission)); 
+  const visibleGated = [
+    ...gatedItems.filter((item) => can(item.permission)),
+    ...(user?.role === 'Super Admin' ? superAdminItems : []),
+  ];
 
   const renderItem = (item) => (
     <ListItemButton key={item.path} selected={pathname === item.path}

@@ -9,8 +9,11 @@ const { requirePermission } = require('../middlewares/requirePermission');
 const ADMIN = 4;       // Admin or Super Admin
 const SUPER_ADMIN = 5; // Super Admin only
 
-// List every user (the Manage Users table).
+// List every user (the Manage Users table). Moderator-and-below, peer-hidden.
 router.get('/users', protect, requireMinLevel(ADMIN), adminController.listUsers);
+
+// List Admin accounts (the Manage Admins table). Super Admin only.
+router.get('/admins', protect, requireMinLevel(SUPER_ADMIN), adminController.listAdmins);
 
 // Exact-username lookup (the +Add Admin search bar).
 router.get('/users/search', protect, requireMinLevel(ADMIN), adminController.searchByUsername);

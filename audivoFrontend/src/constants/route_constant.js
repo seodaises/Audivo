@@ -16,3 +16,4 @@ export const USERS = "/users";
 export const ANALYTICS = "/analytics";
 export const MODERATE = "/moderate";
 export const ROLES = "/roles";
+export const ADMINS = "/admins";

@@ -4,11 +4,21 @@ const catchAsync = require('../utils/catchAsync');
 const { success } = require('../utils/response');
 const ApiError = require('../utils/ApiError');
 
-// GET /api/admin/users?page=&limit=
 const listUsers = catchAsync(async (req, res) => {
   const { page, limit } = req.query;
-  const result = await adminService.listUsers({ page, limit });
+  const result = await adminService.listUsers({
+    page,
+    limit,
+    viewerLevel: req.user.level,
+  });
   return success(res, 200, 'Users retrieved', result);
+});
+
+// GET /api/admin/admins?page=&limit=  — Super Admin only (the Manage Admins page)
+const listAdmins = catchAsync(async (req, res) => {
+  const { page, limit } = req.query;
+  const result = await adminService.listAdmins({ page, limit });
+  return success(res, 200, 'Admins retrieved', result);
 });
 
 // GET /api/admin/users/search?username=
@@ -101,6 +111,7 @@ const getMetrics = catchAsync(async (req, res) => {
 
 module.exports = {
   listUsers,
+  listAdmins,
   searchByUsername,
   changeUserRole,
   createUser,
