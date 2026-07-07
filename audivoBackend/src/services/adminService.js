@@ -36,6 +36,9 @@ const paginatedUserList = async ({ page, limit, roleWhere }) => {
   const offset = (safePage - 1) * safeLimit;
 
   const { count, rows } = await db.User.findAndCountAll({
+    // Soft-deleted accounts vanish from every management table. Applied here in
+    // the shared helper, so listUsers AND listAdmins inherit it in one place.
+    where: { deleted_at: null },
     include: [{ model: db.Role, as: 'role', where: roleWhere, required: true }],
     order: [['id', 'ASC']],
     limit: safeLimit,
@@ -207,6 +210,32 @@ const setUserStatus = async ({ actor, targetUserId, isActive }) => {
   return adminUserRow(target);
 };
 
+const softDeleteUser = async ({ actor, targetUserId }) => {
+  if (Number(actor.id) === Number(targetUserId)) {
+    throw new ApiError(403, 'You cannot delete your own account from here');
+  }
+
+  const target = await db.User.findByPk(targetUserId, {
+    include: [{ model: db.Role, as: 'role' }],
+  });
+  if (!target) throw new ApiError(404, 'Target user not found');
+
+  // Strict-higher rule — identical to setUserStatus / changeUserRole.
+  if (!(actor.level > target.role.level)) {
+    throw new ApiError(403, 'You cannot modify a user at or above your own level');
+  }
+
+  // Idempotent: a second delete on an already-removed row is a no-op success.
+  if (target.deleted_at !== null) {
+    return { id: target.id, deleted: true };
+  }
+
+  target.deleted_at = new Date();
+  await target.save();
+
+  return { id: target.id, deleted: true };
+};
+
 const getAllPermissions = async () => {
   const perms = await db.Permission.findAll({ order: [['id', 'ASC']] });
   return perms.map((p) => ({ id: p.id, key: p.key, description: p.description }));
@@ -332,6 +361,7 @@ module.exports = {
   changeUserRole,
   createUser,
   setUserStatus,
+  softDeleteUser,
   getAllPermissions,
   getRolesWithPermissions,
   grantPermission,

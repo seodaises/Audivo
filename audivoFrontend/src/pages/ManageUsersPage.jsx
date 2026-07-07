@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import {Box, Paper, Typography, Stack, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Chip, Avatar, Alert, Skeleton, TablePagination, Tooltip, Menu, MenuItem, ListItemIcon, ListItemText,} from '@mui/material';
+import {Box, Paper, Typography, Stack, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Chip, Avatar, Alert, Skeleton, TablePagination, Tooltip, Menu, MenuItem, ListItemIcon, ListItemText, IconButton, Divider,} from '@mui/material';
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import SetUserStatusDialog from '../components/SetUserStatusDialog';
+import DeleteUserDialog from '../components/DeleteUserDialog';
 
 // Role name -> level, so the UI can apply the same strict-higher (>) rule the
 // backend enforces: you only get actionable controls for users below you.
@@ -38,6 +41,9 @@ export default function ManageUsersPage() {
   // Confirm-dialog state: the row we're about to flip and the value to send.
   const [confirmRow, setConfirmRow] = useState(null);
   const [confirmNext, setConfirmNext] = useState(null);
+
+  // Delete-confirm state: the row staged for soft-delete.
+  const [deleteRow, setDeleteRow] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr(null);
@@ -90,7 +96,23 @@ export default function ManageUsersPage() {
     setConfirmNext(null);
   };
 
-  const COLS = 6;
+  // Menu item clicked -> stage the delete dialog, then close the menu.
+  const requestDelete = () => {
+    if (!menuRow) return;
+    setDeleteRow(menuRow);
+    closeStatusMenu();
+  };
+
+  // The soft-delete write. PATCH .../delete (state change, not a hard DELETE).
+  // On success the row vanishes because the backend filters deleted_at IS NULL.
+  const doDelete = async () => {
+    await api(`/admin/users/${deleteRow.id}/delete`, { method: 'PATCH' });
+    await load();
+  };
+
+  const closeDelete = () => setDeleteRow(null);
+
+  const COLS = 7;
 
   return (
     <Box>
@@ -109,6 +131,7 @@ export default function ManageUsersPage() {
                 <TableCell>Phone</TableCell>
                 <TableCell>Role</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -121,6 +144,7 @@ export default function ManageUsersPage() {
                     <TableCell><Skeleton width={110} /></TableCell>
                     <TableCell><Skeleton width={80} /></TableCell>
                     <TableCell><Skeleton width={80} /></TableCell>
+                    <TableCell align="right"><Skeleton width={32} /></TableCell>
                   </TableRow>
                 ))
               ) : rows.length === 0 ? (
@@ -136,14 +160,6 @@ export default function ManageUsersPage() {
                   const isSelf = u.id === me?.id;
                   const outranked = myLevel > (ROLE_LEVEL[u.role] ?? 0);
                   const canActOnStatus = outranked && !isSelf;
-
-                  const statusTip = isSelf
-                    ? 'You cannot change your own status'
-                    : !outranked
-                      ? 'You cannot modify a user at or above your level'
-                      : u.isActive
-                        ? 'Click to deactivate this account'
-                        : 'Click to reactivate this account';
 
                   const roleTip = isSelf
                     ? 'You cannot change your own role'
@@ -184,17 +200,33 @@ export default function ManageUsersPage() {
                         </Tooltip>
                       </TableCell>
                       <TableCell>
-                        <Tooltip title={statusTip}>
-                          {/* span wrapper so the tooltip still shows on a disabled chip */}
+                        <Chip
+                          label={u.isActive ? 'Active' : 'Inactive'}
+                          color={u.isActive ? 'success' : 'default'}
+                          size="small"
+                          variant={u.isActive ? 'filled' : 'outlined'}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Tooltip
+                          title={
+                            isSelf
+                              ? 'You cannot act on your own account here'
+                              : !outranked
+                                ? 'You cannot modify a user at or above your level'
+                                : 'Account actions'
+                          }
+                        >
+                          {/* span so the tooltip shows even when the button is disabled */}
                           <span>
-                            <Chip
-                              label={u.isActive ? 'Active' : 'Inactive'}
-                              color={u.isActive ? 'success' : 'default'}
+                            <IconButton
                               size="small"
-                              variant={u.isActive ? 'filled' : 'outlined'}
-                              onClick={canActOnStatus ? (e) => openStatusMenu(e, u) : undefined}
-                              sx={{ cursor: canActOnStatus ? 'pointer' : 'default' }}
-                            />
+                              onClick={(e) => openStatusMenu(e, u)}
+                              disabled={!canActOnStatus}
+                              aria-label="account actions"
+                            >
+                              <MoreVertRoundedIcon fontSize="small" />
+                            </IconButton>
                           </span>
                         </Tooltip>
                       </TableCell>
@@ -217,7 +249,7 @@ export default function ManageUsersPage() {
         />
       </Paper>
 
-      {/* The one action menu, positioned at whichever chip was clicked. */}
+      {/* The one action menu, positioned at whichever row's kebab was clicked. */}
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeStatusMenu}>
         {menuRow?.isActive ? (
           <MenuItem onClick={requestToggle}>
@@ -230,6 +262,11 @@ export default function ManageUsersPage() {
             <ListItemText>Reactivate account</ListItemText>
           </MenuItem>
         )}
+        <Divider />
+        <MenuItem onClick={requestDelete}>
+          <ListItemIcon><DeleteForeverRoundedIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Delete account</ListItemText>
+        </MenuItem>
       </Menu>
 
       <SetUserStatusDialog
@@ -238,6 +275,13 @@ export default function ManageUsersPage() {
         nextActive={confirmNext}
         onClose={closeConfirm}
         onConfirm={doToggle}
+      />
+
+      <DeleteUserDialog
+        open={Boolean(deleteRow)}
+        target={deleteRow}
+        onClose={closeDelete}
+        onConfirm={doDelete}
       />
     </Box>
   );

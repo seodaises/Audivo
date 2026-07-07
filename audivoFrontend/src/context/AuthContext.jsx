@@ -104,6 +104,13 @@ export function AuthProvider({ children }) {
     finally { setLoading(false); }
   };
 
+  const deleteAccount = async () => {
+    await api('/auth/me', { method: 'DELETE' });
+    clearToken();
+    localStorage.removeItem('audivo-user');
+    setUser(null);
+  };
+
   const can = (permission) => !!user?.permissions?.includes(permission);
   useEffect(() => {
     refreshUser();
@@ -113,7 +120,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, error, loading,
       login, register, resendVerification, logout,
-      refreshUser, updateProfile, can,
+      refreshUser, updateProfile, deleteAccount, can,
     }}>
       {children}
     </AuthContext.Provider>

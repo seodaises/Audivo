@@ -14,9 +14,12 @@ module.exports = (sequelize, DataTypes) => {
       User.hasMany(models.LoginHistory, { foreignKey: 'user_id', as: 'loginHistory' });
     }
 
-    // derived, not stored — keeps "when" as the single source of truth
     get isVerified() {
       return this.email_verified_at !== null;
+    }
+
+    get isDeleted() {
+      return this.deleted_at !== null;
     }
 
     get fullName() {
@@ -45,8 +48,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(100),
         allowNull: false,
       },
-
-      // --- profile fields (added by 20260702120000-add-profile-fields-to-users) ---
       first_name: {
         type: DataTypes.STRING(100),
         allowNull: true,
@@ -87,7 +88,6 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
 
-      // --- extended profile fields (all optional; set via the profile popup) ---
       gender: {
         type: DataTypes.STRING(30),
         allowNull: true,
@@ -128,6 +128,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: true,
+      },
+      deleted_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null,
       },
       email_verified_at: {
         type: DataTypes.DATE,

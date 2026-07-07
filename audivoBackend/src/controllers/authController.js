@@ -99,6 +99,12 @@ const updateMe = catchAsync(async (req, res) => {
   return success(res, 200, 'Profile updated', result);
 });
 
+// DELETE /api/auth/me  — the logged-in user deletes their own account. Soft delete: the row is kept but the account is gone for good from the user's side (no self-service undo). No outrank check — you're acting on yourself.
+const deleteMe = catchAsync(async (req, res) => {
+  const result = await authService.deleteMe({ userId: req.user.id });
+  return success(res, 200, 'Account deleted', result);
+});
+
 module.exports = {
   register,
   login,
@@ -111,4 +117,5 @@ module.exports = {
   resetPassword,
   getMe,
   updateMe,
+  deleteMe,
 };

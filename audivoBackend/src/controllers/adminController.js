@@ -74,6 +74,17 @@ const setStatus = catchAsync(async (req, res) => {
   return success(res, 200, isActive ? 'User activated' : 'User deactivated', result);
 });
 
+// PATCH /api/admin/users/:id/delete  — soft-delete an account (row survives, account disappears from the tables and can no longer log in). PATCH, not DELETE, to signal this is a state change (deleted_at), not a hard removal.
+const deleteUser = catchAsync(async (req, res) => {
+  const targetUserId = req.params.id;
+
+  const result = await adminService.softDeleteUser({
+    actor: req.user,
+    targetUserId,
+  });
+  return success(res, 200, 'User deleted', result);
+});
+
 // GET /api/admin/permissions  — the full permission catalogue (editor columns)
 const listPermissions = catchAsync(async (req, res) => {
   const result = await adminService.getAllPermissions();
@@ -102,8 +113,7 @@ const revokePermission = catchAsync(async (req, res) => {
   return success(res, 200, 'Permission revoked', result);
 });
 
-// GET /api/admin/metrics  — user counts per role (Super Admin bucket hidden
-// from Admins). req.user.level is set by requireMinLevel.
+// GET /api/admin/metrics  — user counts per role (Super Admin bucket hidden from Admins). req.user.level is set by requireMinLevel.
 const getMetrics = catchAsync(async (req, res) => {
   const result = await adminService.getMetrics({ actorLevel: req.user.level });
   return success(res, 200, 'Metrics retrieved', result);
@@ -116,6 +126,7 @@ module.exports = {
   changeUserRole,
   createUser,
   setStatus,
+  deleteUser,
   listPermissions,
   listRolesWithPermissions,
   grantPermission,

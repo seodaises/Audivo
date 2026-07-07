@@ -69,6 +69,8 @@ const login = async ({ email, password, ipAddress, userAgent }) => {
 
   const ok = await comparePassword(password, user.password_hash);
   if (!ok) throw new ApiError(401, 'Invalid credentials');
+
+  if (user.deleted_at !== null) throw new ApiError(401, 'Invalid credentials');
   if (!user.is_active) throw new ApiError(403, 'Account is disabled');
 
   if (process.env.REQUIRE_VERIFIED_EMAIL === 'true' && !user.email_verified_at) {
@@ -78,7 +80,6 @@ const login = async ({ email, password, ipAddress, userAgent }) => {
   user.last_login_at = new Date();
   await user.save();
 
-  // login_history is the source of truth for "when/where did I sign in"
   await db.LoginHistory.create({
     user_id: user.id,
     ip_address: ipAddress || null,
@@ -123,12 +124,9 @@ const verifyEmail = async (token) => {
 const resendVerification = async ({ email }) => {
   const user = await db.User.findOne({ where: { email } });
 
-  // No user, or already verified → act as if we sent something. Do nothing.
   if (!user || user.email_verified_at) {
     return { sent: false, verificationUrl: null };
   }
-
-  // Burn any still-valid tokens so only the new one is usable.
   await db.EmailVerificationToken.update(
     { used_at: new Date() },
     { where: { user_id: user.id, used_at: null } }
@@ -255,7 +253,6 @@ const updateMe = async ({ userId, patch }) => {
     'address_postal_code',
   ];
 
-  // Map camelCase keys the frontend sends -> snake_case columns.
   const incoming = {
     display_name: patch.displayName,
     first_name: patch.firstName,
@@ -285,6 +282,19 @@ const updateMe = async ({ userId, patch }) => {
 
   await user.save(); // model validators (e.g. avatar_url URL check) run here
   return publicUser(user);
+};
+
+const deleteMe = async ({ userId }) => {
+  const user = await db.User.findByPk(userId);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  // Already gone — idempotent, don't error on a double-submit.
+  if (user.deleted_at !== null) return { deleted: true };
+
+  user.deleted_at = new Date();
+  await user.save();
+
+  return { deleted: true };
 };
 
 const publicUser = (user, permissions = []) => ({
@@ -324,4 +334,5 @@ module.exports = {
   getLoginHistory,
   getMe,
   updateMe,
+  deleteMe,
 };

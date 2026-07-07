@@ -26,6 +26,9 @@ router.post('/users', protect, requireMinLevel(SUPER_ADMIN), adminController.cre
 // Enable/disable an account (the active/inactive toggle).
 router.patch('/users/:id/status', protect, requireMinLevel(ADMIN), adminController.setStatus);
 
+// Soft-delete an account (row survives; hidden everywhere + login blocked).
+router.patch('/users/:id/delete', protect, requireMinLevel(ADMIN), adminController.deleteUser);
+
 router.get(
   '/metrics',
   protect,

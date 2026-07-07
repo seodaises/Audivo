@@ -9,7 +9,9 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 import { useAuth } from '../context/AuthContext';
+import DeleteAccountDialog from './DeleteAccountDialog';
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
 
@@ -28,13 +30,12 @@ const formFromUser = (u) => ({
 });
 
 export default function ProfileDialog({ open, onClose }) {
-  const { user, updateProfile, refreshUser, loading, error } = useAuth();
+  const { user, updateProfile, refreshUser, loading, error, deleteAccount } = useAuth();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(formFromUser(user));
   const [saved, setSaved] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Refresh from the server each time the dialog opens, so it reflects truth
-  // (not just the cached localStorage copy).
   useEffect(() => {
     if (open) {
       refreshUser();
@@ -189,9 +190,26 @@ export default function ProfileDialog({ open, onClose }) {
             </Button>
           </>
         ) : (
-          <Button onClick={onClose}>Close</Button>
+          <>
+            <Button
+              color="error"
+              startIcon={<DeleteForeverRoundedIcon />}
+              onClick={() => setDeleteOpen(true)}
+              sx={{ mr: 'auto' }}
+            >
+              Delete account
+            </Button>
+            <Button onClick={onClose}>Close</Button>
+          </>
         )}
       </DialogActions>
+
+      <DeleteAccountDialog
+        open={deleteOpen}
+        username={user.username}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={deleteAccount}
+      />
     </Dialog>
   );
 }
