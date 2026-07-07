@@ -13,6 +13,7 @@ const shapeUser = (u) => {
   return {
     id: u.id,
     name: u.displayName,
+    username: u.username ?? null,
     email: u.email,
     firstName: u.firstName ?? null,
     lastName: u.lastName ?? null,

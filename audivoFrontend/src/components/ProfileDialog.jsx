@@ -92,6 +92,11 @@ export default function ProfileDialog({ open, onClose }) {
             <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
               {user.fullName || user.name}
             </Typography>
+            {user.username && (
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                @{user.username}
+              </Typography>
+            )}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
               <Chip label={user.role} color="primary" variant="outlined" size="small" />
               {user.isVerified ? (
@@ -170,6 +175,7 @@ export default function ProfileDialog({ open, onClose }) {
         ) : (
           // -------- VIEW MODE --------
           <Stack spacing={1.5}>
+            <Field label="Username" value={user.username ? `@${user.username}` : ''} />
             <Field label="Email" value={user.email} />
             <Field label="First name" value={user.firstName} />
             <Field label="Last name" value={user.lastName} />

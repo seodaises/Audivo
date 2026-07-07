@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Typography, Stack, Button, Table, TableHead, TableBody, TableRow,
   TableCell, TableContainer, Chip, Avatar, Alert, Skeleton, TablePagination,
-  Tooltip, Menu, MenuItem, ListItemIcon, ListItemText, Snackbar,
+  Tooltip, Menu, MenuItem, ListItemIcon, ListItemText, Snackbar, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton,
   InputAdornment,
 } from '@mui/material';
@@ -10,9 +10,12 @@ import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import SetUserStatusDialog from '../components/SetUserStatusDialog';
+import DeleteUserDialog from '../components/DeleteUserDialog';
 
 const ROLE_LEVEL = {
   'Super Admin': 5, 'Admin': 4, 'Moderator': 3, 'Artist': 2, 'Listener': 1,
@@ -35,6 +38,7 @@ export default function ManageAdminsPage() {
   const [menuRow, setMenuRow] = useState(null);
   const [confirmRow, setConfirmRow] = useState(null);
   const [confirmNext, setConfirmNext] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr(null);
@@ -73,7 +77,23 @@ export default function ManageAdminsPage() {
 
   const closeConfirm = () => { setConfirmRow(null); setConfirmNext(null); };
 
-  const COLS = 5;
+  // Menu item clicked -> stage the delete dialog, then close the menu.
+  const requestDelete = () => {
+    if (!menuRow) return;
+    setDeleteRow(menuRow);
+    closeStatusMenu();
+  };
+
+  // Soft-delete write. PATCH .../delete (state change, not a hard DELETE).
+  // On success the row vanishes because the backend filters deleted_at IS NULL.
+  const doDelete = async () => {
+    await api(`/admin/users/${deleteRow.id}/delete`, { method: 'PATCH' });
+    await load();
+  };
+
+  const closeDelete = () => setDeleteRow(null);
+
+  const COLS = 6;
 
   return (
     <Box>
@@ -114,6 +134,7 @@ export default function ManageAdminsPage() {
                 <TableCell>Email</TableCell>
                 <TableCell>Phone</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -125,6 +146,7 @@ export default function ManageAdminsPage() {
                     <TableCell><Skeleton width={160} /></TableCell>
                     <TableCell><Skeleton width={110} /></TableCell>
                     <TableCell><Skeleton width={80} /></TableCell>
+                    <TableCell align="right"><Skeleton width={32} /></TableCell>
                   </TableRow>
                 ))
               ) : rows.length === 0 ? (
@@ -153,12 +175,10 @@ export default function ManageAdminsPage() {
                   const canActOnStatus = outranked && !isSelf;
 
                   const statusTip = isSelf
-                    ? 'You cannot change your own status'
+                    ? 'You cannot act on your own account here'
                     : !outranked
                       ? 'You cannot modify a user at or above your level'
-                      : u.isActive
-                        ? 'Click to deactivate this account'
-                        : 'Click to reactivate this account';
+                      : 'Account actions';
 
                   return (
                     <TableRow key={u.id} hover>
@@ -182,16 +202,25 @@ export default function ManageAdminsPage() {
                         <Typography variant="body2" color="text.secondary">{u.phoneNumber || '—'}</Typography>
                       </TableCell>
                       <TableCell>
+                        <Chip
+                          label={u.isActive ? 'Active' : 'Inactive'}
+                          color={u.isActive ? 'success' : 'default'}
+                          size="small"
+                          variant={u.isActive ? 'filled' : 'outlined'}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
                         <Tooltip title={statusTip}>
+                          {/* span so the tooltip shows even when the button is disabled */}
                           <span>
-                            <Chip
-                              label={u.isActive ? 'Active' : 'Inactive'}
-                              color={u.isActive ? 'success' : 'default'}
+                            <IconButton
                               size="small"
-                              variant={u.isActive ? 'filled' : 'outlined'}
-                              onClick={canActOnStatus ? (e) => openStatusMenu(e, u) : undefined}
-                              sx={{ cursor: canActOnStatus ? 'pointer' : 'default' }}
-                            />
+                              onClick={(e) => openStatusMenu(e, u)}
+                              disabled={!canActOnStatus}
+                              aria-label="account actions"
+                            >
+                              <MoreVertRoundedIcon fontSize="small" />
+                            </IconButton>
                           </span>
                         </Tooltip>
                       </TableCell>
@@ -226,6 +255,11 @@ export default function ManageAdminsPage() {
             <ListItemText>Reactivate account</ListItemText>
           </MenuItem>
         )}
+        <Divider />
+        <MenuItem onClick={requestDelete}>
+          <ListItemIcon><DeleteForeverRoundedIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Delete account</ListItemText>
+        </MenuItem>
       </Menu>
 
       <SetUserStatusDialog
@@ -234,6 +268,13 @@ export default function ManageAdminsPage() {
         nextActive={confirmNext}
         onClose={closeConfirm}
         onConfirm={doToggle}
+      />
+
+      <DeleteUserDialog
+        open={Boolean(deleteRow)}
+        target={deleteRow}
+        onClose={closeDelete}
+        onConfirm={doDelete}
       />
 
       <AddAdminDialog
