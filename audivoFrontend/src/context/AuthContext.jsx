@@ -105,11 +105,24 @@ export function AuthProvider({ children }) {
     finally { setLoading(false); }
   };
 
-  const deleteAccount = async () => {
-    await api('/auth/me', { method: 'DELETE' });
+  const deleteAccount = async (password) => {
+    await api('/auth/me', { method: 'DELETE', body: { password } });
     clearToken();
     localStorage.removeItem('audivo-user');
     setUser(null);
+  };
+
+  // Change the current user's handle. Returns { ok, error } so the dialog can
+  // show a field-level message (e.g. 409 "Username already taken") without
+  // clobbering the shared profile error.
+  const changeUsername = async (username) => {
+    try {
+      await api('/auth/me/username', { method: 'PATCH', body: { username } });
+      await refreshUser();
+      return { ok: true, error: null };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   };
 
   const can = (permission) => !!user?.permissions?.includes(permission);
@@ -121,7 +134,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, error, loading,
       login, register, resendVerification, logout,
-      refreshUser, updateProfile, deleteAccount, can,
+      refreshUser, updateProfile, deleteAccount, changeUsername, can,
     }}>
       {children}
     </AuthContext.Provider>

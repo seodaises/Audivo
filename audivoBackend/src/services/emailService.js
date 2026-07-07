@@ -101,8 +101,7 @@ const getLoginUrl = () => {
   return `${frontendUrl}/login`;
 };
 
-// Emails a newly created admin their one-time credentials. Same dev contract as
-// the other mailers: { sent: false, loginUrl } when SMTP isn't configured.
+// Emails a newly created admin their one-time credentials. Same dev contract as the other mailers: { sent: false, loginUrl } when SMTP isn't configured.
 const sendTempPasswordEmail = async ({ to, tempPassword, displayName }) => {
   const loginUrl = getLoginUrl();
   const transporter = getTransporter();
@@ -137,4 +136,48 @@ const sendTempPasswordEmail = async ({ to, tempPassword, displayName }) => {
   return { sent: true };
 };
 
-module.exports = { sendVerificationEmail, sendResetPasswordEmail, sendTempPasswordEmail };
+// Where contact-form submissions are delivered. Falls back to the SMTP user so dev setups don't need extra config.
+const getSupportInbox = () =>
+  process.env.SUPPORT_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
+
+// Notifies the support inbox of a new contact-form submission. The visitor's address is set as replyTo so support can answer them directly. Same dev contract as the other mailers: { sent: false } when SMTP isn't configured.
+const sendContactNotification = async ({ name, email, subject, message }) => {
+  const transporter = getTransporter();
+  const inbox = getSupportInbox();
+  const safeSubject = subject && subject.trim() ? subject.trim() : '(no subject)';
+
+  if (!transporter || !inbox) {
+    console.log(`Contact form from ${name} <${email}> [${safeSubject}]: ${message}`);
+    return { sent: false };
+  }
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: inbox,
+    replyTo: email,
+    subject: `Audivo contact: ${safeSubject}`,
+    text:
+      `New contact-form submission.\n\n` +
+      `Name: ${name}\n` +
+      `Email: ${email}\n` +
+      `Subject: ${safeSubject}\n\n` +
+      `Message:\n${message}\n`,
+    html: `
+      <p>New contact-form submission.</p>
+      <p><strong>Name:</strong> ${name}<br/>
+         <strong>Email:</strong> ${email}<br/>
+         <strong>Subject:</strong> ${safeSubject}</p>
+      <p><strong>Message:</strong></p>
+      <p style="white-space:pre-wrap">${message}</p>
+    `,
+  });
+
+  return { sent: true };
+};
+
+module.exports = {
+  sendVerificationEmail,
+  sendResetPasswordEmail,
+  sendTempPasswordEmail,
+  sendContactNotification,
+};

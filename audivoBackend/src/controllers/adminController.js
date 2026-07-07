@@ -119,6 +119,12 @@ const getMetrics = catchAsync(async (req, res) => {
   return success(res, 200, 'Metrics retrieved', result);
 });
 
+const listContactMessages = catchAsync(async (req, res) => {
+  const { page, limit, status } = req.query;
+  const result = await adminService.listContactMessages({ page, limit, status });
+  return success(res, 200, 'Contact messages retrieved', result);
+});
+
 module.exports = {
   listUsers,
   listAdmins,
@@ -132,4 +138,5 @@ module.exports = {
   grantPermission,
   revokePermission,
   getMetrics,
+  listContactMessages,
 };

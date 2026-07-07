@@ -5,26 +5,31 @@ import {
 } from '@mui/material';
 import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 
-export default function DeleteAccountDialog({ open, username, onClose, onConfirm }) {
+export default function DeleteAccountDialog({ open, onClose, onConfirm }) {
   const [busy, setBusy] = useState(false);
-  const [typed, setTyped] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
 
-  const armed = typed.trim().toLowerCase() === String(username || '').toLowerCase();
+  const armed = password.trim().length > 0;
 
   const handleConfirm = async () => {
     if (!armed) return;
     setBusy(true);
+    setError(null);
     try {
-      await onConfirm(); // parent: DELETE /auth/me then logout()
-      // No onClose() — logout unmounts this tree; nothing to reset.
-    } finally {
+      await onConfirm(password); // parent: DELETE /auth/me { password } then logout
+      // On success the auth tree unmounts (user cleared) — nothing to reset.
+    } catch (err) {
+      // Wrong password / other failure — keep the dialog open and explain.
+      setError(err.message || 'Could not delete your account');
       setBusy(false);
     }
   };
 
   const handleClose = () => {
     if (busy) return;
-    setTyped('');
+    setPassword('');
+    setError(null);
     onClose();
   };
 
@@ -37,19 +42,23 @@ export default function DeleteAccountDialog({ open, username, onClose, onConfirm
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
           This removes your account for good. You won&apos;t be able to log back
-          in, and this can&apos;t be undone from here.
+          in, and this can&apos;t be undone.
         </DialogContentText>
         <Alert severity="error" variant="outlined" sx={{ mb: 2 }}>
-          Type your username <strong>@{username}</strong> to confirm.
+          Enter your password to confirm.
         </Alert>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <TextField
           fullWidth
           size="small"
-          placeholder={username}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
+          type="password"
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
           disabled={busy}
-          autoComplete="off"
+          autoComplete="current-password"
+          autoFocus
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>

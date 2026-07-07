@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Typography } from '@mui/material';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { AuthProvider } from './context/AuthContext';
+import { UIPreferencesProvider } from './context/UIPreferencesContext';
 import RequireAuth from './components/RequireAuth';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
@@ -19,31 +20,33 @@ export default function App() {
   return (
     <ColorModeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public (logged-out) */}
-            <Route path={LOGIN} element={<LoginPage />} />
-            <Route path={REGISTER} element={<RegisterPage />} />
-            <Route path={RESET_PASSWORD} element={<ResetPasswordPage />} />
+        <UIPreferencesProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public (logged-out) */}
+              <Route path={LOGIN} element={<LoginPage />} />
+              <Route path={REGISTER} element={<RegisterPage />} />
+              <Route path={RESET_PASSWORD} element={<ResetPasswordPage />} />
 
-            {/* Requires login */}
-            <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-              <Route path={DASHBOARD} element={<Dashboard />} />
-              <Route path={BROWSE} element={<Placeholder title="Browse" />} />
-              <Route path={LIBRARY} element={<Placeholder title="Library" />} />
-              <Route path={UPLOAD} element={<Placeholder title="Upload Songs" />} />
-              <Route path={SONGS} element={<Placeholder title="Delete Songs" />} />
-              <Route path={FEATURE} element={<Placeholder title="Feature Songs" />} />
-              <Route path={USERS} element={<ManageUsersPage />} />
-              <Route path={ANALYTICS} element={<Placeholder title="Analytics" />} />
-              <Route path={MODERATE} element={<Placeholder title="Moderate Comments" />} />
-              <Route path={ROLES} element={<ManageRolesPage />} />
-              <Route path={ADMINS} element={<ManageAdminsPage />} />
-            </Route>
+              {/* Requires login */}
+              <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+                <Route path={DASHBOARD} element={<Dashboard />} />
+                <Route path={BROWSE} element={<Placeholder title="Browse" />} />
+                <Route path={LIBRARY} element={<Placeholder title="Library" />} />
+                <Route path={UPLOAD} element={<Placeholder title="Upload Songs" />} />
+                <Route path={SONGS} element={<Placeholder title="Delete Songs" />} />
+                <Route path={FEATURE} element={<Placeholder title="Feature Songs" />} />
+                <Route path={USERS} element={<ManageUsersPage />} />
+                <Route path={ANALYTICS} element={<Placeholder title="Analytics" />} />
+                <Route path={MODERATE} element={<Placeholder title="Moderate Comments" />} />
+                <Route path={ROLES} element={<ManageRolesPage />} />
+                <Route path={ADMINS} element={<ManageAdminsPage />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to={DASHBOARD} replace />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<Navigate to={DASHBOARD} replace />} />
+            </Routes>
+          </BrowserRouter>
+        </UIPreferencesProvider>
       </AuthProvider>
     </ColorModeProvider>
   );

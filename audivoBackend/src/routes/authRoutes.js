@@ -37,7 +37,11 @@ router.get('/me', protect, authController.getMe);
 // PUT /api/auth/me  — update current user's profile fields
 router.put('/me', protect, authController.updateMe);
 
-// DELETE /api/auth/me  — current user deletes their own account (soft, no undo)
+// PATCH /api/auth/me/username  — change the current user's handle (no rate limit)
+router.patch('/me/username', protect, authController.changeUsername);
+
+// DELETE /api/auth/me  — current user deletes their own account (soft, no undo).
+// Requires the account password in the body to confirm ownership.
 router.delete('/me', protect, authController.deleteMe);
 
 module.exports = router;

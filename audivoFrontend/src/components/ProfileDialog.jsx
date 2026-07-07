@@ -30,23 +30,34 @@ const formFromUser = (u) => ({
 });
 
 export default function ProfileDialog({ open, onClose }) {
-  const { user, updateProfile, refreshUser, loading, error, deleteAccount } = useAuth();
+  const { user, updateProfile, refreshUser, loading, error, deleteAccount, changeUsername } = useAuth();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(formFromUser(user));
   const [saved, setSaved] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Username editor — separate endpoint, so it carries its own local state.
+  const [usernameDraft, setUsernameDraft] = useState(user?.username ?? '');
+  const [usernameBusy, setUsernameBusy] = useState(false);
+  const [usernameError, setUsernameError] = useState(null);
+  const [usernameSaved, setUsernameSaved] = useState(false);
 
   useEffect(() => {
     if (open) {
       refreshUser();
       setEditing(false);
       setSaved(false);
+      setUsernameError(null);
+      setUsernameSaved(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Keep the form in sync whenever the user object changes.
-  useEffect(() => { setForm(formFromUser(user)); }, [user]);
+  useEffect(() => {
+    setForm(formFromUser(user));
+    setUsernameDraft(user?.username ?? '');
+  }, [user]);
 
   if (!user) return null;
 
@@ -60,7 +71,23 @@ export default function ProfileDialog({ open, onClose }) {
 
   const handleCancel = () => {
     setForm(formFromUser(user));
+    setUsernameDraft(user?.username ?? '');
+    setUsernameError(null);
+    setUsernameSaved(false);
     setEditing(false);
+  };
+
+  const usernameChanged =
+    usernameDraft.trim().toLowerCase() !== String(user.username || '').toLowerCase();
+
+  const handleUsernameSave = async () => {
+    setUsernameBusy(true);
+    setUsernameError(null);
+    setUsernameSaved(false);
+    const { ok, error: uErr } = await changeUsername(usernameDraft.trim());
+    if (ok) setUsernameSaved(true);
+    else setUsernameError(uErr);
+    setUsernameBusy(false);
   };
 
   const initial = (user.name || user.email || '?').charAt(0).toUpperCase();
@@ -116,6 +143,37 @@ export default function ProfileDialog({ open, onClose }) {
         {editing ? (
           // -------- EDIT MODE --------
           <Stack spacing={2}>
+            {/* Username — its own endpoint, its own Change button + feedback */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <TextField
+                  label="Username"
+                  fullWidth
+                  value={usernameDraft}
+                  onChange={(e) => {
+                    setUsernameDraft(e.target.value);
+                    setUsernameError(null);
+                    setUsernameSaved(false);
+                  }}
+                  disabled={usernameBusy}
+                  slotProps={{ input: { startAdornment: <Box component="span" sx={{ color: 'text.secondary', mr: 0.5 }}>@</Box> } }}
+                  helperText="3–20 chars: lowercase letters, numbers, underscores"
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleUsernameSave}
+                  disabled={usernameBusy || !usernameChanged || !usernameDraft.trim()}
+                  sx={{ mt: 1, whiteSpace: 'nowrap' }}
+                >
+                  {usernameBusy ? 'Saving…' : 'Change'}
+                </Button>
+              </Stack>
+              {usernameSaved && <Alert severity="success" sx={{ mt: 1 }}>Username updated.</Alert>}
+              {usernameError && <Alert severity="error" sx={{ mt: 1 }}>{usernameError}</Alert>}
+            </Box>
+
+            <Divider />
+
             <TextField label="Display name" fullWidth value={form.displayName} onChange={set('displayName')} required />
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -212,7 +270,6 @@ export default function ProfileDialog({ open, onClose }) {
 
       <DeleteAccountDialog
         open={deleteOpen}
-        username={user.username}
         onClose={() => setDeleteOpen(false)}
         onConfirm={deleteAccount}
       />

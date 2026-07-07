@@ -36,6 +36,14 @@ router.get(
   requirePermission('view_analytics'),
   adminController.getMetrics
 );
+// The contact-form queue (admin dashboard). Gated with the same permission as user management, since reactivation requests land here.
+router.get(
+  '/contact-messages',
+  protect,
+  requireMinLevel(ADMIN),
+  requirePermission('manage_users'),
+  adminController.listContactMessages
+);
 
 router.get(
   '/permissions',

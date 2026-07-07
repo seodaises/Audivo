@@ -1,5 +1,6 @@
 'use strict';
 const db = require('../models');
+const { differenceInCalendarDays } = require('date-fns');
 const ApiError = require('../utils/ApiError');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateToken } = require('../utils/jwt');
@@ -12,6 +13,8 @@ const {
 
 const REGISTERABLE_ROLES = ['Listener', 'Artist'];
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+const INACTIVITY_ROLES = ['Listener', 'Artist'];
+const INACTIVITY_LIMIT_DAYS = 30;
 
 const register = async ({ email, password, displayName, username, role = 'Listener' }) => {
   const existing = await db.User.findOne({ where: { email } });
@@ -71,6 +74,24 @@ const login = async ({ email, password, ipAddress, userAgent }) => {
   if (!ok) throw new ApiError(401, 'Invalid credentials');
 
   if (user.deleted_at !== null) throw new ApiError(401, 'Invalid credentials');
+
+  // --- Lazy inactivity sweep -------------------------------------------------
+  const roleName = user.role ? user.role.name : null;
+  if (
+    user.is_active &&
+    INACTIVITY_ROLES.includes(roleName) &&
+    user.last_login_at !== null &&
+    differenceInCalendarDays(new Date(), user.last_login_at) > INACTIVITY_LIMIT_DAYS
+  ) {
+    user.is_active = false;
+    await user.save();
+    throw new ApiError(
+      403,
+      'Your account was deactivated after 30 days of inactivity. Please use the contact form to request reactivation.'
+    );
+  }
+  // ---------------------------------------------------------------------------
+
   if (!user.is_active) throw new ApiError(403, 'Account is disabled');
 
   if (process.env.REQUIRE_VERIFIED_EMAIL === 'true' && !user.email_verified_at) {
@@ -284,9 +305,43 @@ const updateMe = async ({ userId, patch }) => {
   return publicUser(user);
 };
 
-const deleteMe = async ({ userId }) => {
+// PATCH /auth/me/username — dedicated handle change. No rate limit (for now).
+// Uniqueness (409) and format (400) are enforced; a no-op change is rejected.
+const changeUsername = async ({ userId, newUsername }) => {
   const user = await db.User.findByPk(userId);
   if (!user) throw new ApiError(404, 'User not found');
+
+  const normalized = String(newUsername || '').trim().toLowerCase();
+  if (!USERNAME_RE.test(normalized)) {
+    throw new ApiError(
+      400,
+      'username must be 3-20 characters: lowercase letters, numbers, or underscores'
+    );
+  }
+
+  // No-op guard: same handle (case-insensitive) is nothing to do.
+  if (normalized === String(user.username).toLowerCase()) {
+    throw new ApiError(400, 'That is already your username');
+  }
+
+  // Friendly pre-check; the DB unique index is the real guarantee.
+  const taken = await db.User.findOne({ where: { username: normalized } });
+  if (taken) throw new ApiError(409, 'Username already taken');
+
+  user.username = normalized;
+  await user.save();
+
+  return { username: user.username };
+};
+
+const deleteMe = async ({ userId, password }) => {
+  const user = await db.User.findByPk(userId);
+  if (!user) throw new ApiError(404, 'User not found');
+
+  // Ownership check: the account owner must confirm with their password.
+  if (!password) throw new ApiError(400, 'Password is required to delete your account');
+  const ok = await comparePassword(password, user.password_hash);
+  if (!ok) throw new ApiError(401, 'Password is incorrect');
 
   // Already gone — idempotent, don't error on a double-submit.
   if (user.deleted_at !== null) return { deleted: true };
@@ -334,5 +389,6 @@ module.exports = {
   getLoginHistory,
   getMe,
   updateMe,
+  changeUsername,
   deleteMe,
 };

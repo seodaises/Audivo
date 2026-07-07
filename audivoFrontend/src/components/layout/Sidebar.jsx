@@ -12,6 +12,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useUIPreferences } from '../../context/UIPreferencesContext';
 import { PERMISSIONS } from '../../auth/permissions';
 import ProfileMenu from '../ProfileMenu';
 import {
@@ -52,8 +53,12 @@ const superAdminItems = [
 
 export default function Sidebar() {
   const { user, can } = useAuth();
+  const { sidebarHidden } = useUIPreferences();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  // Hidden by user preference — render nothing so the main area reclaims the space.
+  if (sidebarHidden) return null;
 
   const visibleGated = [
     ...gatedItems.filter((item) => can(item.permission)),

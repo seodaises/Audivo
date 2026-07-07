@@ -36,14 +36,11 @@ const paginatedUserList = async ({ page, limit, roleWhere }) => {
   const offset = (safePage - 1) * safeLimit;
 
   const { count, rows } = await db.User.findAndCountAll({
-    // Soft-deleted accounts vanish from every management table. Applied here in
-    // the shared helper, so listUsers AND listAdmins inherit it in one place.
     where: { deleted_at: null },
     include: [{ model: db.Role, as: 'role', where: roleWhere, required: true }],
     order: [['id', 'ASC']],
     limit: safeLimit,
     offset,
-    // findAndCountAll with a required include + limit can miscount without this.
     distinct: true,
   });
 
@@ -309,13 +306,60 @@ const rolePermissionSnapshot = async (roleId) => {
   };
 };
 
+const contactMessageRow = (m) => ({
+  id: m.id,
+  name: m.name,
+  email: m.email,
+  subject: m.subject ?? null,
+  message: m.message,
+  status: m.status,
+  userId: m.user_id ?? null,
+  createdAt: m.created_at,
+});
+
+const listContactMessages = async ({ page = 1, limit = 50, status } = {}) => {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+  const safePage = Math.max(parseInt(page, 10) || 1, 1);
+  const offset = (safePage - 1) * safeLimit;
+
+  const where = {};
+  if (status && ['new', 'read', 'resolved'].includes(status)) {
+    where.status = status;
+  }
+
+  const { count, rows } = await db.ContactMessage.findAndCountAll({
+    where,
+    order: [['created_at', 'DESC']],
+    limit: safeLimit,
+    offset,
+  });
+
+  return {
+    messages: rows.map(contactMessageRow),
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: count,
+      totalPages: Math.ceil(count / safeLimit),
+    },
+  };
+};
+
 const getMetrics = async ({ actorLevel }) => {
   const SUPER_ADMIN_LEVEL = 5;
   const canSeeSuperAdmin = Number(actorLevel) >= SUPER_ADMIN_LEVEL;
 
   const roles = await db.Role.findAll({
     attributes: ['id', 'name', 'level'],
-    include: [{ model: db.User, as: 'users', attributes: ['id', 'is_active'] }],
+    include: [
+      {
+        model: db.User,
+        as: 'users',
+        attributes: ['id', 'is_active'],
+        where: { deleted_at: null },
+        required: false,
+      },
+    ],
     order: [['level', 'DESC']],
   });
 
@@ -367,4 +411,5 @@ module.exports = {
   grantPermission,
   revokePermission,
   getMetrics,
+  listContactMessages,
 };
